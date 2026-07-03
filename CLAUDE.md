@@ -81,7 +81,7 @@ QTimer(自适应) → App.refresh() → QThreadPool._FetchWorker(子线程)
 ## CI & Release
 
 GitHub Actions（`.github/workflows/ci.yml`）：
-- **check**：每次 push/PR 运行 `uv sync` + 核心模块导入检查。
-- **build-and-release**：push 到 `main` 时 PyInstaller 打包 → 解析 `CHANGELOG.md` 首行版本 → 创建 GitHub Release。
+- **PR 到 `main`（未合并）**：仅 PyInstaller 打包验证，不保存产物。
+- **PR 合并到 `main`（push）**：打包 → 解析 `CHANGELOG.md` 首行版本 → 创建 GitHub Release + 附加 exe。
 
 工作流：`develop` 开发 → PR 到 `main` → 合并后自动打包发版。
