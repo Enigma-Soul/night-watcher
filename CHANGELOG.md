@@ -1,3 +1,19 @@
+# 0.1.2
+
+### Chore(ci)
+
+- CI 拆分为 build / release 两个 job
+- build: 仅 PR 到 main 时运行，安装依赖 + 编译 exe + 存入缓存
+- release: 仅 push 到 main 时运行，恢复缓存 exe + 解析 CHANGELOG + 发版，不安装任何依赖
+
+### Refactor
+
+- 缓存逻辑从 `libs/cache.py` 迁移至 `BaseAdapter`（per-adapter `data/<id>.json`）
+- 自适应调度状态机内置 `BaseAdapter`
+- 日志从 stdlib logging 切换到 loguru（彩色终端 + 1MB 文件轮转）
+- 全量 Ruff format + lint 修复
+- CLAUDE.md 重写为面向 Claude Code 的开发指南
+
 # 0.1.0
 
 ### Feat(adapter)

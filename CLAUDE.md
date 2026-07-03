@@ -2,6 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 版本
+
+当前版本：**0.1.2**（同步更新 `pyproject.toml` 和 `CHANGELOG.md`）
+
+每次 push 前必须询问用户新版本号，并同时更新：
+- `pyproject.toml` 的 `version` 字段
+- `CHANGELOG.md` 顶部新增版本条目
+
 ## Commands
 
 ```bash
@@ -80,8 +88,8 @@ QTimer(自适应) → App.refresh() → QThreadPool._FetchWorker(子线程)
 
 ## CI & Release
 
-GitHub Actions（`.github/workflows/ci.yml`）：
-- **PR 到 `main`（未合并）**：仅 PyInstaller 打包验证，不保存产物。
-- **PR 合并到 `main`（push）**：打包 → 解析 `CHANGELOG.md` 首行版本 → 创建 GitHub Release + 附加 exe。
+GitHub Actions（`.github/workflows/ci.yml`），两个独立 job：
+- **build**（仅 PR 到 `main`）：安装依赖 + PyInstaller 编译 exe + 存入缓存。
+- **release**（仅 push 到 `main`，即 PR 合并后）：恢复缓存 exe + 解析 `CHANGELOG.md` + 创建 GitHub Release。不安装任何依赖。
 
-工作流：`develop` 开发 → PR 到 `main` → 合并后自动打包发版。
+工作流：`develop` 开发 → PR 到 `main`（触发 build）→ 合并（触发 release，取缓存直接发版）。
