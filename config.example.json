@@ -1,0 +1,25 @@
+{
+    "gui": {
+        "low_line": 72,
+        "high_line": 180,
+        "max": 270,
+        "color_scheme": 0,
+        "unit": "mmol/L",
+        "time_range": 6,
+        "active_adapter": "sisensing"
+    },
+    "adapter": {
+        "sisensing": {
+            "ss_token": "",
+            "ss_region": "CN",
+            "timeout": 10,
+            "retries": 3,
+            "mock_file": ""
+        },
+        "nightscout": {
+            "ns_url": "",
+            "api_secret": "",
+            "count": 288
+        }
+    }
+}

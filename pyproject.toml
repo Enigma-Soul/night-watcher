@@ -1,0 +1,12 @@
+[project]
+name = "night-watcher"
+version = "0.1.0"
+description = "桌面血糖悬浮小部件：模块化 adapter 拉取多源 CGM 数据（硅基动感/NightScout 等）本地展示"
+requires-python = ">=3.12"
+dependencies = [
+    "PySide6>=6.7",
+    "requests>=2.32",
+]
+
+[tool.uv]
+package = false
