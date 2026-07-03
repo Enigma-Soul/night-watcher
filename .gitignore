@@ -216,3 +216,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# night-watcher 运行时数据（含凭据/个人血糖，勿入库）
+# 注意：上面 Distribution 段的 lib/ 不会影响本项目的 libs/（带 s）目录。
+config.json
+cache.json
+log.log
+config.json.bad
+.idea/

@@ -1,0 +1,91 @@
+name: CI & Release
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── 基础检查（所有 push/PR） ──
+  check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 uv
+        run: pip install uv
+
+      - name: 安装依赖
+        run: uv sync
+
+      - name: 导入完整性检查
+        run: |
+          uv run --no-sync python -c "
+          import sys; sys.path.insert(0,'.')
+          from libs.config import Config
+          from libs.theme import load_theme, scan_themes
+          from libs.base_adapter import BaseAdapter
+          print('All core imports OK')
+          "
+
+  # ── 打包 + 发版（仅 main 分支 push） ──
+  build-and-release:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 uv
+        run: pip install uv
+
+      - name: 安装依赖
+        run: uv sync
+
+      - name: 安装 PyInstaller
+        run: pip install pyinstaller
+
+      - name: 打包 exe
+        run: pyinstaller --onefile --name night-watcher --noconsole main.py
+
+      - name: 解析 CHANGELOG 获取版本
+        id: changelog
+        shell: pwsh
+        run: |
+          $changelog = Get-Content -Raw -Path CHANGELOG.md
+          # 提取第一个 # X.Y.Z 作为版本号
+          if ($changelog -match '^#\s+([\d.]+)') {
+            $version = $matches[1].Trim()
+            echo "version=$version" >> $env:GITHUB_OUTPUT
+            echo "Found version: $version"
+          } else {
+            echo "version=0.0.0" >> $env:GITHUB_OUTPUT
+            echo "WARNING: No version found in CHANGELOG.md"
+          }
+          # 提取版本区间内的 body（从 ## 或第二次 # 以前）
+          $lines = $changelog -split "`n"
+          $body = @()
+          $inBody = $false
+          foreach ($line in $lines) {
+            if ($line -match '^#\s+[\d.]+') {
+              if ($inBody) { break }
+              $inBody = $true
+              continue
+            }
+            if ($inBody) { $body += $line }
+          }
+          $bodyText = ($body -join "`n").Trim()
+          Set-Content -Path release_body.md -Value $bodyText -Encoding UTF8
+
+      - name: 创建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.changelog.outputs.version }}
+          name: v${{ steps.changelog.outputs.version }}
+          body_path: release_body.md
+          files: dist/night-watcher.exe
+          draft: false
+          prerelease: false

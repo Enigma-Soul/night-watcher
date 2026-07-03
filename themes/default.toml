@@ -1,0 +1,36 @@
+# NightWatcher 默认主题。
+#
+# 契约：所有 .toml 主题文件必须具备以下四个 [section]，
+# 缺失的键会自动以本文件的默认值补足。
+# 颜色格式：#RRGGBB（不含 alpha；透明度由 opacity 字段单独控制）。
+
+[main]
+background = "#1E1E2E"
+opacity = 0.6
+text_color = "#FFFFFF"
+offline_color = "#FFAA00"
+border_color = "#646464"
+
+[panel]
+background = "#1E1E2E"
+opacity = 0.6
+text_color = "#FFFFFF"
+border_color = "#506080"
+border_radius = 10
+
+[chart]
+line_color = "#6496FA"
+high_line_color = "#FA9664"
+low_line_color = "#96FA64"
+line_width = 2
+dot_visible = true
+dot_size = 3
+# 按血糖区间着色：低 / 正常 / 高
+low_zone_color = "#EB5757"
+normal_zone_color = "#6DAE81"
+high_zone_color = "#F2C94C"
+
+[tir]
+high_color = "#F2C94C"
+range_color = "#6DAE81"
+low_color = "#EB5757"
