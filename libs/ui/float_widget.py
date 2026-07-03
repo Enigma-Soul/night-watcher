@@ -3,6 +3,7 @@
 左键短按切换 InfoPanel，拖拽移动；右键菜单（设置 / 数据源子菜单 / 退出）。
 全新重写，不沿用旧 ``library/gui/MainPanel.py`` 代码。
 """
+
 from __future__ import annotations
 
 from PySide6.QtCore import QPoint, Qt
@@ -31,7 +32,7 @@ class FloatWidget(QWidget):
         self.on_open_settings = lambda: None
         self.on_select_source = lambda aid: None
         self.on_refresh = lambda: None  # 右键 → 强制刷新
-        self.on_moved = lambda: None    # 拖动时通知重定位面板
+        self.on_moved = lambda: None  # 拖动时通知重定位面板
         self.sources: list[tuple[str, str]] = []  # [(adapter_id, display_name)]
 
         self.label = QLabel("-- →", self)
@@ -53,20 +54,20 @@ class FloatWidget(QWidget):
     def set_sources(self, sources: list[tuple[str, str]]):
         self.sources = sources
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event):  # noqa: N802
         if event.button() == Qt.LeftButton:
             self._drag_pos = event.globalPosition().toPoint()
             self._press_pos = event.position().toPoint()
         elif event.button() == Qt.RightButton:
             self._exec_menu(event.globalPosition().toPoint())
 
-    def mouseMoveEvent(self, event):
+    def mouseMoveEvent(self, event):  # noqa: N802
         if self._drag_pos and event.buttons() & Qt.LeftButton:
             self.move(self.pos() + event.globalPosition().toPoint() - self._drag_pos)
             self._drag_pos = event.globalPosition().toPoint()
             self.on_moved()
 
-    def mouseReleaseEvent(self, event):
+    def mouseReleaseEvent(self, event):  # noqa: N802
         if event.button() == Qt.LeftButton and self._press_pos is not None:
             moved = event.position().toPoint() - self._press_pos
             if moved.manhattanLength() < 10:  # 短按切换面板
@@ -94,7 +95,7 @@ class FloatWidget(QWidget):
         menu.addAction("退出", QApplication.quit)
         menu.exec(pos)
 
-    def paintEvent(self, event):
+    def paintEvent(self, event):  # noqa: N802
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         path = QPainterPath()

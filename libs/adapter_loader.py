@@ -8,6 +8,7 @@
 
 adapter 文件须用绝对导入：``from libs.base_adapter import BaseAdapter``。
 """
+
 from __future__ import annotations
 
 import importlib
@@ -64,9 +65,7 @@ def scan(package: str = "adapter") -> list[type[BaseAdapter]]:
 def _is_adapter_subclass(cls: Any, mod: Any) -> bool:
     """是否为定义在 ``mod`` 内的 BaseAdapter 子类（排除被 import 带进来的基类）。"""
     return (
-        issubclass(cls, BaseAdapter)
-        and cls is not BaseAdapter
-        and cls.__module__ == mod.__name__
+        issubclass(cls, BaseAdapter) and cls is not BaseAdapter and cls.__module__ == mod.__name__
     )
 
 

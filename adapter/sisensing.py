@@ -7,6 +7,7 @@
 本 adapter 仅拉取不上传——上传 NightScout 非本项目核心功能，若日后需要可
 由本 adapter 自行扩展，不影响主程序。
 """
+
 from __future__ import annotations
 
 import json
@@ -47,7 +48,7 @@ class SisensingAdapter(BaseAdapter):
         mock = self.config.get("mock_file")
         if mock:
             try:
-                with open(mock, "r", encoding="utf-8") as f:
+                with open(mock, encoding="utf-8") as f:
                     raw = json.load(f)
             except (OSError, json.JSONDecodeError) as e:
                 raise FetchError(f"读取 mock_file 失败: {e}", adapter_id=self.id)

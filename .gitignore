@@ -224,3 +224,4 @@ cache.json
 log.log
 config.json.bad
 .idea/
+data/

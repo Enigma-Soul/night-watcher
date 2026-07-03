@@ -3,6 +3,7 @@
 数据（历史血糖 entries）走 ``libs.cache.Cache``。配置损坏时备份为
 ``config.json.bad`` 并写默认配置，避免阻断启动。
 """
+
 from __future__ import annotations
 
 import json
@@ -15,14 +16,20 @@ DEFAULT_CONFIG: dict = {
         "low_line": 72,
         "high_line": 180,
         "max": 270,
-        "color_scheme": 0,   # 已由 theme 体系取代，保留仅为向后兼容
+        "color_scheme": 0,  # 已由 theme 体系取代，保留仅为向后兼容
         "theme": "default",
         "unit": "mmol/L",  # "mmol/L" | "mg/dL"，仅影响显示
-        "time_range": 6,   # 1/6/12/24 小时
+        "time_range": 6,  # 1/6/12/24 小时
         "active_adapter": "sisensing",
     },
     "adapter": {
-        "sisensing": {"ss_token": "", "ss_region": "CN", "timeout": 10, "retries": 3, "mock_file": ""},
+        "sisensing": {
+            "ss_token": "",
+            "ss_region": "CN",
+            "timeout": 10,
+            "retries": 3,
+            "mock_file": "",
+        },
         "nightscout": {"ns_url": "", "api_secret": "", "count": 288},
     },
 }

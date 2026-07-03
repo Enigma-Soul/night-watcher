@@ -3,6 +3,7 @@
 数据本身就是 NightScout 协议（``entries.json``），但因 URL 不同仍需独立
 adapter（见用户约定）。仅拉取，``sgv`` 已是 mg/dL，直通。
 """
+
 from __future__ import annotations
 
 import requests

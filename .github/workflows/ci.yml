@@ -1,62 +1,58 @@
-name: CI & Release
+name: Build & Release
 
 on:
   push:
-    branches: [develop, main]
+    branches: [main]
   pull_request:
     branches: [main]
 
 jobs:
-  # ── 基础检查（所有 push/PR） ──
-  check:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: 安装 uv
-        run: pip install uv
-
-      - name: 安装依赖
-        run: uv sync
-
-      - name: 导入完整性检查
-        run: |
-          uv run --no-sync python -c "
-          import sys; sys.path.insert(0,'.')
-          from libs.config import Config
-          from libs.theme import load_theme, scan_themes
-          from libs.base_adapter import BaseAdapter
-          print('All core imports OK')
-          "
-
-  # ── 打包 + 发版（仅 main 分支 push） ──
-  build-and-release:
-    needs: check
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  build:
     runs-on: windows-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
 
+      # ── 恢复缓存的 exe 产物 ──
+      - name: 恢复编译产物
+        id: cache-exe
+        uses: actions/cache@v4
+        with:
+          path: dist/night-watcher.exe
+          key: nw-exe-${{ hashFiles('uv.lock', '**/*.py') }}
+
+      # ── 缓存命中且是合并发版 → 跳过编译 ──
       - name: 安装 uv
+        if: steps.cache-exe.outputs.cache-hit != 'true'
         run: pip install uv
 
       - name: 安装依赖
+        if: steps.cache-exe.outputs.cache-hit != 'true'
         run: uv sync
 
       - name: 安装 PyInstaller
-        run: pip install pyinstaller
+        if: steps.cache-exe.outputs.cache-hit != 'true'
+        run: uv pip install pyinstaller
 
       - name: 打包 exe
-        run: pyinstaller --onefile --name night-watcher --noconsole main.py
+        id: pack
+        if: steps.cache-exe.outputs.cache-hit != 'true'
+        run: uv run pyinstaller --onefile --name night-watcher --noconsole main.py
 
+      # 打包失败 → 删除缓存的 exe，防止保存损坏的产物
+      - name: 打包失败清理
+        if: failure()
+        run: Remove-Item -Force dist/night-watcher.exe -ErrorAction SilentlyContinue
+        shell: pwsh
+
+      # ── 仅 push 到 main（PR 合并）时发版 ──
       - name: 解析 CHANGELOG 获取版本
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         id: changelog
         shell: pwsh
         run: |
           $changelog = Get-Content -Raw -Path CHANGELOG.md
-          # 提取第一个 # X.Y.Z 作为版本号
           if ($changelog -match '^#\s+([\d.]+)') {
             $version = $matches[1].Trim()
             echo "version=$version" >> $env:GITHUB_OUTPUT
@@ -65,7 +61,6 @@ jobs:
             echo "version=0.0.0" >> $env:GITHUB_OUTPUT
             echo "WARNING: No version found in CHANGELOG.md"
           }
-          # 提取版本区间内的 body（从 ## 或第二次 # 以前）
           $lines = $changelog -split "`n"
           $body = @()
           $inBody = $false
@@ -81,6 +76,7 @@ jobs:
           Set-Content -Path release_body.md -Value $bodyText -Encoding UTF8
 
       - name: 创建 GitHub Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.changelog.outputs.version }}

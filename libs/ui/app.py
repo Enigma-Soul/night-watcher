@@ -4,16 +4,16 @@
 ``merge``/``save``/``update_ui``，避免阻塞 UI（修正旧 ``Thread + sleep`` 模式
 在 QTimer 槽里同步请求会冻死悬浮窗的问题）。
 """
+
 from __future__ import annotations
 
-from collections import Counter
+import time
 from datetime import datetime
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Signal, Slot
 from PySide6.QtWidgets import QApplication
 
 from libs.base_adapter import BaseAdapter, FetchError
-from libs.cache import Cache
 from libs.config import Config
 from libs.logger import get as get_logger
 from libs.sgv import SGV
@@ -37,25 +37,6 @@ _DIRECTION_ARROW = {
 }
 
 
-def _compute_interval(entries: list[dict]) -> int | None:
-    """根据数据点时间间隔众数计算实际拉取间隔(ms)。
-
-    若无足够数据点(>=2)或有效间隔，返回 None。
-    """
-    if len(entries) < 2:
-        return None
-    sorted_entries = sorted(entries, key=lambda e: e["date"])
-    diffs = []
-    for i in range(1, len(sorted_entries)):
-        d = sorted_entries[i]["date"] - sorted_entries[i - 1]["date"]
-        if 60_000 <= d <= 3_600_000:  # 1 分钟 ~ 1 小时，排除异常间隔
-            diffs.append(d)
-    if not diffs:
-        return None
-    rounded = [round(d / 1000) * 1000 for d in diffs]
-    return Counter(rounded).most_common(1)[0][0]
-
-
 class _FetchSignals(QObject):
     # (adapter_id, entries|None, error|None)
     done = Signal(str, object, object)
@@ -70,24 +51,28 @@ class _FetchWorker(QRunnable):
         self.signals = _FetchSignals()
 
     def run(self):
+        log = get_logger()
+        log.debug("worker: 开始拉取 {}", self._adapter.id)
         try:
             entries = self._adapter.fetch()
+            log.debug("worker: 拉取完成, {} 条", len(entries))
             self.signals.done.emit(self._adapter.id, entries, None)
         except FetchError as e:
+            log.debug("worker: 拉取失败: {}", e)
             self.signals.done.emit(self._adapter.id, None, e)
         except Exception as e:  # 兜底：非 FetchError 也归一
+            log.debug("worker: 异常: {}", e)
             self.signals.done.emit(
-                self._adapter.id, None, FetchError(str(e), adapter_id=self._adapter.id))
+                self._adapter.id, None, FetchError(str(e), adapter_id=self._adapter.id)
+            )
 
 
 class App:
-    def __init__(self, config: Config, cache: Cache,
-                 adapters: dict[str, BaseAdapter], active_id: str):
+    def __init__(self, config: Config, adapters: dict[str, BaseAdapter], active_id: str):
         self.config = config
-        self.cache = cache
         self.adapters = adapters
         self.active_id = active_id
-        self.sgv = SGV(cache.load(active_id))
+        self.sgv = SGV(adapters[active_id].load_cached_entries())
         self._offline = not adapters[active_id].is_configured()
 
         # 主题
@@ -123,32 +108,43 @@ class App:
 
     def refresh(self):
         if self._fetching:
+            get_logger().debug("刷新: 上一轮未结束，跳过")
             return
-        self._sched_timer.stop()  # 取消排队中的定时器
+        self._sched_timer.stop()
         adapter = self.adapters.get(self.active_id)
         if not adapter or not adapter.is_configured():
             self._offline = True
             self.update_ui()
             return
+        self._fetch_start = time.perf_counter()
+        get_logger().info("刷新: {}", self.active_id)
         self._fetching = True
         worker = _FetchWorker(adapter)
+        self._active_signals = worker.signals  # 保持引用防 GC
         worker.signals.done.connect(self._on_fetch_result)
         self.pool.start(worker)
 
     @Slot(str, object, object)
     def _on_fetch_result(self, aid: str, entries, error):
         self._fetching = False
+        self._active_signals = None  # 释放 worker 信号引用
         if aid != self.active_id:
             return  # 切源后丢弃过期结果
+        dt = int((time.perf_counter() - self._fetch_start) * 1000)
+        log = get_logger()
         if error is not None:
-            get_logger().warning("adapter %s 拉取失败: %s", aid, error)
+            log.warning("拉取失败 ({}ms): {}", dt, error)
             self._offline = True
             self.update_ui()
             self._sched_timer.start(60_000)  # 失败后 1 分钟重试
             return
+        count = len(entries) if entries else 0
         if entries:
             self.sgv.merge(entries)
-            self.cache.save(aid, self.sgv.all())
+            self.adapters[aid].save_cache(self.sgv.all())
+            if aid in self.adapters:
+                self.adapters[aid].note_fetch_result(entries)
+        log.info("拉取成功 ({}ms): {} 条, 缓存共 {} 条", dt, count, len(self.sgv.all()))
         self._offline = False
         self.update_ui()
         self._schedule_next()
@@ -156,20 +152,15 @@ class App:
     # ---- 调度 ----
 
     def _schedule_next(self):
-        """根据最新数据点时间和间隔众数计算下一次拉取时间。"""
+        """委托 adapter 的自适应调度算法计算下次拉取时间。"""
         adapter = self.adapters.get(self.active_id)
-        poll_sec = adapter.poll_interval_seconds if adapter else 300
-        interval_ms = _compute_interval(self.sgv.all()) or (poll_sec * 1000)
-        latest = self.sgv.latest()
-        now_ms = int(datetime.now().timestamp() * 1000)
-        if latest:
-            expected = latest["date"] + interval_ms + 5000  # +5s 缓冲
-            delay_ms = expected - now_ms
-        else:
-            delay_ms = 0
-        # 下限 30s（防止 stale 数据导致 tight loop），上限 3 倍间隔
-        delay_ms = max(30_000, min(delay_ms, interval_ms * 3))
-        self._sched_timer.start(int(delay_ms))
+        delay_sec = adapter.next_poll_delay_sec() if adapter else 60
+        get_logger().debug(
+            "下次拉取: {}s 后 (phase={})",
+            delay_sec,
+            getattr(adapter, "_phase", "?"),
+        )
+        self._sched_timer.start(int(delay_sec * 1000))
 
     # ---- 切源 / 设置 ----
 
@@ -179,7 +170,7 @@ class App:
         self._sched_timer.stop()
         self.active_id = aid
         self.config.set_active_adapter(aid)
-        self.sgv = SGV(self.cache.load(aid))
+        self.sgv = SGV(self.adapters[aid].load_cached_entries())
         self._offline = not self.adapters[aid].is_configured()
         self.update_ui()
         self.refresh()
@@ -252,8 +243,18 @@ class App:
 
         self.widget.set_value(value_text, arrow, offline=self._offline)
         self._position_panel()
-        self.panel.update_data(value_text, arrow, time_ago, self._offline,
-                               chart_entries, low, high, max_sgv, hours, tir)
+        self.panel.update_data(
+            value_text,
+            arrow,
+            time_ago,
+            self._offline,
+            chart_entries,
+            low,
+            high,
+            max_sgv,
+            hours,
+            tir,
+        )
 
     @staticmethod
     def _format_value(sgv: int, unit: str) -> str:

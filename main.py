@@ -8,14 +8,14 @@
     → active 失效则回退第一个并写回
     → App.run()
 """
+
 from __future__ import annotations
 
 import sys
 
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from libs.adapter_loader import EmptyAdapterIdError, DuplicateAdapterIdError, scan
-from libs.cache import Cache
+from libs.adapter_loader import DuplicateAdapterIdError, EmptyAdapterIdError, scan
 from libs.config import Config
 from libs.logger import get as get_logger
 from libs.logger import setup as setup_logger
@@ -29,7 +29,7 @@ def main():
     log = get_logger()
     log.info("night-watcher 启动")
 
-    app_qt = QApplication(sys.argv)  # 早建，供 QMessageBox
+    QApplication(sys.argv)  # 早建，供 QMessageBox
 
     try:
         classes = scan("adapter")
@@ -48,9 +48,8 @@ def main():
         active = next(iter(instances))
         config.set_active_adapter(active)
 
-    cache = Cache("cache.json")
-    app = App(config, cache, instances, active)
-    log.info("活跃数据源: %s", active)
+    app = App(config, instances, active)
+    log.info("活跃数据源: {}", active)
     app.run()
 
 

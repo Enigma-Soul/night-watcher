@@ -4,11 +4,19 @@
 App 收到后写回 Config 并按需刷新。警报线/最大值按当前 unit 输入，保存时
 统一转回 mg/dL 内部存储（修正旧代码 unit 语义反转 bug）。
 """
+
 from __future__ import annotations
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QFormLayout,
-                               QGroupBox, QLineEdit, QVBoxLayout)
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QGroupBox,
+    QLineEdit,
+    QVBoxLayout,
+)
 
 from libs.theme import scan_themes
 
@@ -28,8 +36,9 @@ _INT_FIELDS = {"timeout", "retries", "count"}
 class SettingsDialog(QDialog):
     settings_changed = Signal(dict)
 
-    def __init__(self, gui: dict, adapter_configs: dict,
-                 adapter_sources: list[tuple[str, str]], parent=None):
+    def __init__(
+        self, gui: dict, adapter_configs: dict, adapter_sources: list[tuple[str, str]], parent=None
+    ):
         super().__init__(parent)
         self.setWindowTitle("设置")
         self.setFixedSize(440, 520)
@@ -63,7 +72,9 @@ class SettingsDialog(QDialog):
         self._time_combo = QComboBox()
         self._time_combo.addItems(["1 小时", "6 小时", "12 小时", "24 小时"])
         hours = int(self._gui.get("time_range", 6))
-        self._time_combo.setCurrentIndex(_TIME_OPTIONS.index(hours) if hours in _TIME_OPTIONS else 1)
+        self._time_combo.setCurrentIndex(
+            _TIME_OPTIONS.index(hours) if hours in _TIME_OPTIONS else 1
+        )
 
         self._source_combo = QComboBox()
         for aid, name in self._sources:
@@ -117,7 +128,9 @@ class SettingsDialog(QDialog):
         except ValueError:
             return  # 输入非法，不关闭
         gui = {
-            "low_line": low, "high_line": high, "max": mx,
+            "low_line": low,
+            "high_line": high,
+            "max": mx,
             "theme": self._theme_combo.currentText(),
             "unit": self._unit_combo.currentText(),
             "time_range": _TIME_OPTIONS[self._time_combo.currentIndex()],
