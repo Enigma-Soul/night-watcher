@@ -2,13 +2,13 @@
 
 弃用旧 ``PieChart`` 饼图，简化为进度条，更直观。
 """
+
 from __future__ import annotations
 
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QProgressBar, QVBoxLayout, QWidget
 
 
 class TirView(QWidget):
-
     def __init__(self, parent=None):
         super().__init__(parent)
         self._colors = {"High": "#F2C94C", "Range": "#6DAE81", "Low": "#EB5757"}
@@ -50,4 +50,5 @@ class TirView(QWidget):
             c = self._colors[key]
             bar.setStyleSheet(
                 f"QProgressBar {{background: rgba(255,255,255,0.2); border-radius:3px;}}"
-                f"QProgressBar::chunk {{background-color:{c}; border-radius:3px;}}")
+                f"QProgressBar::chunk {{background-color:{c}; border-radius:3px;}}"
+            )

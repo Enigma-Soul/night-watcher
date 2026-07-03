@@ -14,12 +14,13 @@ import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
-
 # ---- 子主题 dataclass ----
+
 
 @dataclass
 class MainTheme:
     """主悬浮窗主题。"""
+
     background: str = "#1E1E2E"
     opacity: float = 0.85
     text_color: str = "#FFFFFF"
@@ -30,6 +31,7 @@ class MainTheme:
 @dataclass
 class PanelTheme:
     """信息面板主题。"""
+
     background: str = "#1E1E2E"
     opacity: float = 0.86
     text_color: str = "#FFFFFF"
@@ -40,6 +42,7 @@ class PanelTheme:
 @dataclass
 class ChartTheme:
     """折线/散点图主题。"""
+
     line_color: str = "#6496FA"
     high_line_color: str = "#FA9664"
     low_line_color: str = "#96FA64"
@@ -54,6 +57,7 @@ class ChartTheme:
 @dataclass
 class TirTheme:
     """TIR 进度条主题。"""
+
     high_color: str = "#F2C94C"
     range_color: str = "#6DAE81"
     low_color: str = "#EB5757"
@@ -62,6 +66,7 @@ class TirTheme:
 @dataclass
 class Theme:
     """总主题：聚合四个子主题。"""
+
     main: MainTheme = field(default_factory=MainTheme)
     panel: PanelTheme = field(default_factory=PanelTheme)
     chart: ChartTheme = field(default_factory=ChartTheme)
@@ -72,25 +77,33 @@ class Theme:
 
 DEFAULT_THEME_DICT: dict = {
     "main": {
-        "background": "#1E1E2E", "opacity": 0.85,
-        "text_color": "#FFFFFF", "offline_color": "#FFAA00",
+        "background": "#1E1E2E",
+        "opacity": 0.85,
+        "text_color": "#FFFFFF",
+        "offline_color": "#FFAA00",
         "border_color": "#646464",
     },
     "panel": {
-        "background": "#1E1E2E", "opacity": 0.86,
-        "text_color": "#FFFFFF", "border_color": "#506080",
+        "background": "#1E1E2E",
+        "opacity": 0.86,
+        "text_color": "#FFFFFF",
+        "border_color": "#506080",
         "border_radius": 10,
     },
     "chart": {
-        "line_color": "#6496FA", "high_line_color": "#FA9664",
-        "low_line_color": "#96FA64", "line_width": 2,
-        "dot_visible": True, "dot_size": 3,
+        "line_color": "#6496FA",
+        "high_line_color": "#FA9664",
+        "low_line_color": "#96FA64",
+        "line_width": 2,
+        "dot_visible": True,
+        "dot_size": 3,
         "low_zone_color": "#EB5757",
         "normal_zone_color": "#6DAE81",
         "high_zone_color": "#F2C94C",
     },
     "tir": {
-        "high_color": "#F2C94C", "range_color": "#6DAE81",
+        "high_color": "#F2C94C",
+        "range_color": "#6DAE81",
         "low_color": "#EB5757",
     },
 }
@@ -118,6 +131,7 @@ def _dict_to_theme(d: dict) -> Theme:
 
 
 # ---- 公开 API ----
+
 
 def load_theme(name: str) -> Theme:
     """加载 ``themes/{name}.toml``，缺失则以默认值补足；文件不存在退回到默认主题。"""

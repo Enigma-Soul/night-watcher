@@ -3,15 +3,17 @@
 ``Qt.Tool | Frameless | StaysOnTop``。由 FloatWidget 短按切换显示/隐藏。
 全新重写，不沿用旧 ``library/gui/InfoPanel.py`` 代码。
 """
+
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
+from libs.theme import ChartTheme, PanelTheme, TirTheme
+
 from .chart_view import ChartView
 from .tir_view import TirView
-from libs.theme import PanelTheme, ChartTheme, TirTheme
 
 
 class InfoPanel(QWidget):
@@ -65,12 +67,10 @@ class InfoPanel(QWidget):
 
     def _apply_panel_style(self):
         """根据当前面板主题更新 label 颜色。"""
-        self._value_label.setStyleSheet(
-            f"font-size:18px; color:{self._pt.text_color};")
-        self._time_label.setStyleSheet(
-            f"font-size:12px; color:{self._pt.text_color};")
+        self._value_label.setStyleSheet(f"font-size:18px; color:{self._pt.text_color};")
+        self._time_label.setStyleSheet(f"font-size:12px; color:{self._pt.text_color};")
 
-    def paintEvent(self, event):
+    def paintEvent(self, event):  # noqa: N802
         """手绘圆角半透明背景（WA_TranslucentBackground + stylesheet 不可靠）。"""
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
@@ -95,9 +95,19 @@ class InfoPanel(QWidget):
         self._apply_panel_style()
         self.update()
 
-    def update_data(self, value_text: str, arrow: str, time_ago: str, offline: bool,
-                    chart_entries: list[dict], low: int, high: int, max_sgv: int,
-                    range_hours: int, tir: tuple[float, float, float]):
+    def update_data(
+        self,
+        value_text: str,
+        arrow: str,
+        time_ago: str,
+        offline: bool,
+        chart_entries: list[dict],
+        low: int,
+        high: int,
+        max_sgv: int,
+        range_hours: int,
+        tir: tuple[float, float, float],
+    ):
         color_str = "#FFAA00" if offline else self._pt.text_color
         self._value_label.setStyleSheet(f"font-size:18px; color:{color_str};")
         self._value_label.setText(f"{value_text} {arrow}")

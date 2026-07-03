@@ -3,10 +3,11 @@
 替代旧 ``DotWidget`` 的散点（其依赖旧 SGV 的 spacing 推算，已弃用）。
 entries 为 ``[{"date","sgv","direction"}, ...]``，sgv 为 mg/dL。
 """
+
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QPainter, QPen, QPainterPath
+from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import QWidget
 
 
@@ -29,8 +30,7 @@ class ChartView(QWidget):
         self._normal_zone_color = QColor(109, 174, 129)
         self._high_zone_color = QColor(242, 201, 76)
 
-    def set_data(self, entries: list[dict], low: int, high: int, max_sgv: int,
-                 range_hours: int):
+    def set_data(self, entries: list[dict], low: int, high: int, max_sgv: int, range_hours: int):
         self._entries = entries
         self._low = low
         self._high = high
@@ -51,7 +51,7 @@ class ChartView(QWidget):
         self._dot_size = chart.dot_size
         self.update()
 
-    def paintEvent(self, event):
+    def paintEvent(self, event):  # noqa: N802
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         w, h = self.width(), self.height()
@@ -68,8 +68,7 @@ class ChartView(QWidget):
             return h - sgv / self._max_sgv * h
 
         # 高/低虚线
-        for val, color in [(self._high, self._high_line_color),
-                           (self._low, self._low_line_color)]:
+        for val, color in [(self._high, self._high_line_color), (self._low, self._low_line_color)]:
             p.setPen(QPen(color, 1, Qt.DashLine))
             yy = int(y(val))
             p.drawLine(0, yy, w, yy)
@@ -110,6 +109,9 @@ class ChartView(QWidget):
                     sc = self._normal_zone_color
                 p.setBrush(sc)
                 p.setPen(QPen(sc, 1))
-                p.drawEllipse(int(px - self._dot_size // 2),
-                              int(py - self._dot_size // 2),
-                              self._dot_size, self._dot_size)
+                p.drawEllipse(
+                    int(px - self._dot_size // 2),
+                    int(py - self._dot_size // 2),
+                    self._dot_size,
+                    self._dot_size,
+                )

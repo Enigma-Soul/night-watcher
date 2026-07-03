@@ -5,101 +5,83 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-uv sync                                           # install dependencies
-uv run python main.py                             # launch the desktop widget
-uv run --no-sync python -c "<test snippet>"       # run ad-hoc tests without re-syncing
+# 安装依赖
+uv sync
+
+# 启动应用
+uv run python main.py
+
+# 代码格式化（完成后必须执行）
+uv run ruff format .
+
+# 静态检查
+uv run ruff check .
+
+# 修复可自动修复的 lint 问题
+uv run ruff check --fix .
 ```
 
-No linting or test framework is configured — this is a desktop application, not a package.
+## Git 工作流
+
+- **`main` 受保护，禁止直接 push。** 所有开发在 `develop` 分支进行。
+- 完成后创建 `develop → main` 的 PR。
+- Commit message 使用中文，遵循 Conventional Commits（`feat(scope): 描述`、`fix(scope): 描述`）。
+- **完成后必须运行 `uv run ruff format .` 格式化代码。**
 
 ## Architecture
 
-NightWatcher is a PySide6 desktop widget that displays CGM (continuous glucose monitoring) data as a stay-on-top floating badge. It pulls data from pluggable adapters — only adapters make HTTP requests; the core library, UI, config, and cache layers never touch the network.
+桌面 CGM 血糖悬浮小部件。PySide6 + requests + loguru，uv 管理依赖。
 
-**Data flow (pull cycle):**
+**核心数据流：**
 ```
-QTimer [2 min] → app.refresh()
-  → dispatches _FetchWorker (QRunnable) onto QThreadPool
-  → worker runs adapter.fetch() on a background thread
-  → emits Signal(adapter_id, entries | None, error | None) back to main thread
-  → SGV.merge(entries) + Cache.save + update_ui()
+QTimer(自适应) → App.refresh() → QThreadPool._FetchWorker(子线程)
+  → adapter.fetch() → Signal 回主线程 → SGV.merge → save_cache → update_ui()
 ```
 
-Fetching happens off the main thread so the widget never freezes during network I/O — this replaces the old project's bare `Thread + sleep` pattern that would block on sync `requests.get`.
+网络请求只在 `adapter/` 内发起，核心库/UI/配置层禁止联网。
 
-**Startup sequence (main.py):**
-1. `QApplication` created early (needed for `QMessageBox` error dialogs during adapter scanning).
-2. `Config.load("config.json")` — writes defaults if missing, backs up corrupted files to `.bad`.
-3. `logger.setup("log.log")` — file + console handlers via stdlib `logging`.
-4. `adapter_loader.scan("adapter")` — importlib scans `adapter/*.py`, collects `BaseAdapter` subclasses. Duplicate `id` or missing `id` → fatal error dialog + exit.
-5. Instantiate adapters: `{cls.id: cls(config.adapter_config(cls.id))}`. Config missing for an adapter → empty dict (no KeyError).
-6. Active adapter fallback: `config.gui.active_adapter` must exist in `instances`; otherwise the first instance is used and written back.
-7. `App.run()` — show `FloatWidget`, start timer, initial refresh, `QApplication.exec()`.
+### Module Map
 
-**Module responsibilities:**
+| 模块 | 职责 |
+|------|------|
+| `main.py` | 唯一入口：Config → logger → adapter_loader.scan → 实例化 → App.run() |
+| `libs/config.py` | config.json 原子读写，损坏备份 .bad 后写默认值 |
+| `libs/sgv.py` | 血糖 entries 内存存储，按 date 去重，TIR 统计 |
+| `libs/base_adapter.py` | BaseAdapter ABC + FetchError + 自适应调度状态机 + 缓存 |
+| `libs/adapter_loader.py` | importlib 扫描 adapter/，`_` 前缀跳过，id 重复/空检测 |
+| `libs/theme.py` | themes/*.toml 加载，递归合并默认值，类型化 dataclass |
+| `libs/logger.py` | loguru 封装：彩色终端 + 文件轮转(1MB) |
+| `libs/ui/app.py` | 主控制器：QTimer + QThreadPool + 数据源切换 + UI 更新 |
+| `libs/ui/float_widget.py` | 120×60 无边框置顶悬浮窗 |
+| `libs/ui/info_panel.py` | 展开面板：血糖值+曲线+TIR |
+| `libs/ui/chart_view.py` | QPainter 血糖曲线（按区间着色） |
+| `libs/ui/tir_view.py` | TIR 三段进度条 |
+| `libs/ui/settings_dialog.py` | 设置对话框 + adapter 凭据编辑 |
+| `adapter/` | 可插拔数据源（启动时自动扫描） |
 
-| Module | Role |
-|---|---|
-| `libs/base_adapter.py` | `BaseAdapter` ABC + `FetchError`. Adapter contract: `id` (str), `name` (str), `fetch() -> list[dict]`, `is_configured() -> bool`. |
-| `libs/adapter_loader.py` | Scans `adapter/` with `pkgutil.iter_modules` + `importlib.import_module`. Skips `_`-prefixed files. Detects duplicate `id`. |
-| `libs/sgv.py` | In-memory entry store. `merge()` deduplicates by `date` (later wins). `latest()`, `in_range()`, `tir(low, high, start, end)`. No persistence. |
-| `libs/cache.py` | `cache.json` reader/writer, partitioned by adapter id. Atomic write via `.tmp` + `os.replace`. Corrupted file → returns `[]`. |
-| `libs/config.py` | `config.json` reader/writer with defaults. Corrupted → backup to `.bad` + rewrite defaults. GUI and adapter configs separated. |
-| `libs/logger.py` | stdlib `logging` wrappers. `setup(path)` + `get()`. File write failure degrades gracefully (no crash). |
-| `libs/ui/app.py` | `App` class — owns `QTimer`, `QThreadPool`, `SGV`, `Config`, `Cache`, adapter instances. Orchestrates refresh cycle, source switching, UI updates. |
-| `libs/ui/float_widget.py` | 120×60 frameless, always-on-top badge. Left-click toggles info panel, drag to move, right-click → context menu. |
-| `libs/ui/info_panel.py` | Expandable 260×260 panel: glucose value + arrow + timestamp, 1/6/12/24h time-range buttons, `ChartView`, `TirView`. |
-| `libs/ui/chart_view.py` | QPainter line chart with high/low dashed reference lines. |
-| `libs/ui/tir_view.py` | High/Range/Low QProgressBar triplets. |
-| `libs/ui/settings_dialog.py` | GUI preferences + per-adapter credential editor. Emits `settings_changed(dict)` with `{"gui": {...}, "adapter": {id: {...}}}`. |
+### Adapter 契约
 
-## Adapter contract
+`adapter/*.py` 继承 `BaseAdapter`，必须定义 `id`（str，唯一）和 `name`（str），实现 `fetch() -> list[dict]`。
 
-Every adapter is a `.py` file in `adapter/` with a single class that subclasses `BaseAdapter`. The file must use **absolute imports** (`from libs.base_adapter import BaseAdapter`).
+返回格式：`[{"date": int(ms), "sgv": int(mg/dL), "direction": str}, ...]`
 
-Required class attributes:
-- `id: str` — unique identifier, matches the key in `config["adapter"][<id>]`.
-- `name: str` — display name for UI menus.
+失败抛 `FetchError`。不要在 fetch 内去重或排序，交给 `SGV.merge`。
 
-Required method:
-- `fetch() -> list[dict]` — returns entries in the format:
-  ```
-  [{"date": int(ms), "sgv": int(mg/dL), "direction": str}, ...]
-  ```
-  On failure, raises `FetchError`. Do **not** deduplicate or sort — `SGV.merge` handles that.
+用绝对导入：`from libs.base_adapter import BaseAdapter, FetchError`
 
-Optional override:
-- `is_configured() -> bool` — return `False` if minimum config (token/url) is missing. The app shows `--` and skips fetch when unconfigured.
+## Conventions
 
-The config dict passed to `__init__` is `config["adapter"].get(cls.id, {})`. Adapters read their own keys (e.g. `self.config.get("ss_token")`) — key names are adapter-defined.
+- **sgv 统一 mg/dL**：adapter 负责单位转换（如 mmol/L × 18.018），config 内 low/high/max 也是 mg/dL，unit 仅控制显示。
+- **direction 用 NightScout 名**：`DoubleUp`/`SingleUp`/`FortyFiveUp`/`Flat`/`FortyFiveDown`/`SingleDown`/`DoubleDown`，UI 映射箭头。
+- **原子写入**：Config 和 Cache 均先写 `.tmp` 再 `os.replace`。
+- **缓存路径**：`data/<adapter_id>.json`（gitignored），存 entries + 自适应调度元数据。
+- **注释中文**，代码内注释和 commit message 均用中文。
+- **Ruff 配置**：`line-length = 100`，`target-version = "py312"`，启用 `E/F/I/N/W/UP` 规则。
 
-Files named with a leading `_` (e.g. `_wip.py`, `__init__.py`) are skipped by the loader. Two adapters sharing the same `id` cause a fatal error dialog at startup.
+## CI & Release
 
-## Internal conventions
+GitHub Actions（`.github/workflows/ci.yml`）：
+- **check**：每次 push/PR 运行 `uv sync` + 核心模块导入检查。
+- **build-and-release**：push 到 `main` 时 PyInstaller 打包 → 解析 `CHANGELOG.md` 首行版本 → 创建 GitHub Release。
 
-**sgv is always mg/dL.** The `sgv` field inside entries is always `int` mg/dL. Adapters are responsible for converting from their source unit before returning entries (e.g. Sisensing `v` mmol/L → `round(v * 18.018)`). The config stores `low_line`/`high_line`/`max` in mg/dL. The `unit` config key only controls GUI display (`_format_value` divides by 18.018 for `"mmol/L"`).
-
-**direction strings are NightScout names.** Adapters return `"DoubleUp"`, `"SingleUp"`, `"FortyFiveUp"`, `"Flat"`, `"FortyFiveDown"`, `"SingleDown"`, `"DoubleDown"`. The UI maps these to arrow glyphs. Unknown/missing direction → `→`.
-
-**Network isolation rule.** Only files under `adapter/` may `import requests` or make HTTP calls. `libs/`, `main.py`, and `libs/ui/` must remain network-free.
-
-**Config and data are separate files.** `config.json` = credentials + GUI prefs (gitignored, template at `config.example.json`). `cache.json` = blood glucose entries (also gitignored). The old project mixed 271 KB of data into `config.json` — this is explicitly avoided.
-
-**Atomic file writes.** `Config` and `Cache` both write to `.tmp` first, then `os.replace` to the target path. This prevents corruption on crash or partial write.
-
-## Gotchas
-
-- **`QAction` is `PySide6.QtGui`, not `QtWidgets`** (PySide6 6.11 / Qt6). The old project had it in the wrong package.
-- **Sisensing needs `Authorization: Bearer <token>`** — the reference implementation in `G:\Temp\nightscout-sisensingcgm-uploader` was missing the `Bearer` prefix. The API doc at `docs/sisensing-api.md` confirms `Bearer` is required.
-- **`datetime.now()` works in application code.** The workflow-script restriction on `Date.now()` only applies to the `Workflow` tool's JavaScript scripts, not to the Python application.
-- **Adapters use absolute imports.** `from libs.base_adapter import BaseAdapter` — relative imports (`from ..libs`) don't work because `adapter` and `libs` are sibling top-level packages.
-- **The project is an application, not a package.** `pyproject.toml` has `[tool.uv] package = false`. There is no `setup.py`, `setup.cfg`, or build system. `uv sync` installs dependencies into `.venv`; `uv run python main.py` runs the app.
-
-## Built-in adapters
-
-| Adapter | `id` | Source | Config keys |
-|---|---|---|---|
-| Sisensing | `"sisensing"` | Sisensing follower API (CN/EU) | `ss_token`, `ss_region`, `timeout`, `retries`, `mock_file` |
-| NightScout | `"nightscout"` | Any NightScout `entries.json` | `ns_url`, `api_secret`, `count` |
-
-Sisensing supports a `mock_file` config key — when set to a local JSON path, `fetch()` reads the file instead of making an HTTP request. This allows full end-to-end testing without real credentials.
+工作流：`develop` 开发 → PR 到 `main` → 合并后自动打包发版。

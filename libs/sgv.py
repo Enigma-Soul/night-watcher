@@ -8,9 +8,10 @@
 内部约定：``sgv`` 恒为 int mg/dL；``direction`` 为 NS 方向名字符串；
 ``date`` 为 unix 毫秒。
 """
+
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 
 class SGV:
