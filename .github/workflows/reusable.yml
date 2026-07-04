@@ -1,8 +1,6 @@
-name: Build & Check
+name: Reusable Build
 
 on:
-  pull_request:
-    branches: [main]
   workflow_call:
 
 jobs:
