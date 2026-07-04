@@ -28,6 +28,12 @@ jobs:
         shell: pwsh
         run: Compress-Archive -Path dist/night-watcher/* -DestinationPath dist/night-watcher.zip
 
+      - name: 上传 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: night-watcher
+          path: dist/night-watcher.zip
+
       - name: 解析 CHANGELOG 获取版本
         id: changelog
         shell: pwsh
