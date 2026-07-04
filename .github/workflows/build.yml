@@ -20,4 +20,4 @@ jobs:
         run: uv pip install pyinstaller
 
       - name: 打包 exe
-        run: uv run pyinstaller --onefile --name night-watcher --noconsole main.py
+        run: uv run pyinstaller --name night-watcher --noconsole main.py

@@ -22,7 +22,11 @@ jobs:
         run: uv pip install pyinstaller
 
       - name: 打包 exe
-        run: uv run pyinstaller --onefile --name night-watcher --noconsole main.py
+        run: uv run pyinstaller --name night-watcher --noconsole main.py
+
+      - name: 打包为 zip
+        shell: pwsh
+        run: Compress-Archive -Path dist/night-watcher/* -DestinationPath dist/night-watcher.zip
 
       - name: 解析 CHANGELOG 获取版本
         id: changelog
@@ -57,6 +61,6 @@ jobs:
           tag_name: v${{ steps.changelog.outputs.version }}
           name: v${{ steps.changelog.outputs.version }}
           body_path: release_body.md
-          files: dist/night-watcher.exe
+          files: dist/night-watcher.zip
           draft: false
           prerelease: false
