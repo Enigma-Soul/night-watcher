@@ -35,6 +35,11 @@ uv run ruff check --fix .
 - 完成后创建 `develop → main` 的 PR。
 - Commit message 使用中文，遵循 Conventional Commits（`feat(scope): 描述`、`fix(scope): 描述`）。
 - **完成后必须运行 `uv run ruff format .` 格式化代码。**
+- **每次功能改动后必须打包测试**，确保 PyInstaller 产物可正常启动：
+  ```bash
+  uv run pyinstaller --name night-watcher --noconsole --hidden-import requests --add-data "adapter;adapter" --add-data "themes;themes" main.py -y
+  ```
+  手动启动 `dist\night-watcher\night-watcher.exe` 确认无崩溃后，将 exe 进程终止。
 
 ## Architecture
 
