@@ -1,7 +1,7 @@
 # NightWatcher
 
 [![Python](https://img.shields.io/badge/Python-3.12+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
-[![CI](https://img.shields.io/github/actions/workflow/status/Enigma-Soul/night-watcher/ci.yml?style=flat-square&label=CI)](https://github.com/Enigma-Soul/night-watcher/actions)
+[![Release](https://img.shields.io/github/actions/workflow/status/Enigma-Soul/night-watcher/release.yml?style=flat-square&label=Release)](https://github.com/Enigma-Soul/night-watcher/actions)
 [![License](https://img.shields.io/badge/License-GPLv3-blue?style=flat-square)](./LICENSE)
 
 [English](README-en.md) | 简体中文
