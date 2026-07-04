@@ -1,3 +1,9 @@
+# 0.1.4
+
+### Chore(ci)
+
+- 重命名 build.yml → check.yml，workflow 名统一为 Check / Release
+
 # 0.1.3
 
 ### Fix(ci)
