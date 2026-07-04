@@ -88,8 +88,8 @@ QTimer(自适应) → App.refresh() → QThreadPool._FetchWorker(子线程)
 
 ## CI & Release
 
-GitHub Actions（`.github/workflows/ci.yml`），两个独立 job：
-- **build**（仅 PR 到 `main`）：安装依赖 + PyInstaller 编译 exe + 存入缓存。
-- **release**（仅 push 到 `main`，即 PR 合并后）：恢复缓存 exe + 解析 `CHANGELOG.md` + 创建 GitHub Release。不安装任何依赖。
+两个独立 workflow：
+- **build.yml**（PR 到 `main`）：安装依赖 + PyInstaller 编译验证，不发版。
+- **release.yml**（push 到 `main`）：安装依赖 + 编译 + 解析 `CHANGELOG.md` + 创建 GitHub Release。
 
-工作流：`develop` 开发 → PR 到 `main`（触发 build）→ 合并（触发 release，取缓存直接发版）。
+工作流：`develop` 开发 → PR 到 `main`（触发 build 验证）→ 合并（触发 release 发版）。
