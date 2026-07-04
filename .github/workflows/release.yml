@@ -32,7 +32,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: night-watcher
-          path: dist/night-watcher.zip
+          path: dist/night-watcher/
 
       - name: 解析 CHANGELOG 获取版本
         id: changelog
