@@ -1,0 +1,23 @@
+name: Build
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 uv
+        run: pip install uv
+
+      - name: 安装依赖
+        run: uv sync
+
+      - name: 安装 PyInstaller
+        run: uv pip install pyinstaller
+
+      - name: 打包 exe
+        run: uv run pyinstaller --onefile --name night-watcher --noconsole main.py

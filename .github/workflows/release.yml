@@ -1,16 +1,14 @@
-name: Build & Release
+name: Release
 
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
 
 jobs:
-  # ── PR 时编译，产物存入缓存 ──
-  build:
-    if: github.event_name == 'pull_request'
+  release:
     runs-on: windows-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -25,28 +23,6 @@ jobs:
 
       - name: 打包 exe
         run: uv run pyinstaller --onefile --name night-watcher --noconsole main.py
-
-      - name: 缓存编译产物
-        uses: actions/cache/save@v4
-        with:
-          path: dist/night-watcher.exe
-          key: nw-exe-${{ hashFiles('uv.lock', '**/*.py') }}
-
-  # ── 合并后直接取缓存发版，不重新编译 ──
-  release:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: windows-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: 恢复编译产物
-        uses: actions/cache/restore@v4
-        with:
-          path: dist/night-watcher.exe
-          key: nw-exe-${{ hashFiles('uv.lock', '**/*.py') }}
-          fail-on-cache-miss: true
 
       - name: 解析 CHANGELOG 获取版本
         id: changelog
