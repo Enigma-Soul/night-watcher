@@ -5,34 +5,26 @@ on:
     branches: [main]
 
 jobs:
+  build:
+    uses: ./.github/workflows/check.yml
+
   release:
+    needs: build
     runs-on: windows-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
 
-      - name: 安装 uv
-        run: pip install uv
-
-      - name: 安装依赖
-        run: uv sync
-
-      - name: 安装 PyInstaller
-        run: uv pip install pyinstaller
-
-      - name: 打包 exe
-        run: uv run pyinstaller --name night-watcher --noconsole main.py
+      - name: 下载 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: night-watcher
+          path: dist/night-watcher/
 
       - name: 打包为 zip
         shell: pwsh
         run: Compress-Archive -Path dist/night-watcher/* -DestinationPath dist/night-watcher.zip
-
-      - name: 上传 artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: night-watcher
-          path: dist/night-watcher/
 
       - name: 解析 CHANGELOG 获取版本
         id: changelog

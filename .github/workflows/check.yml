@@ -1,8 +1,9 @@
-name: Check
+name: Build & Check
 
 on:
   pull_request:
     branches: [main]
+  workflow_call:
 
 jobs:
   build:
@@ -20,7 +21,7 @@ jobs:
         run: uv pip install pyinstaller
 
       - name: 打包 exe
-        run: uv run pyinstaller --name night-watcher --noconsole main.py
+        run: uv run pyinstaller --name night-watcher --noconsole --add-data "adapter;adapter" --add-data "themes;themes" main.py
 
       - name: 上传 artifact
         uses: actions/upload-artifact@v4
