@@ -7,48 +7,48 @@ on:
     branches: [main]
 
 jobs:
+  # ── PR 时编译，产物存入缓存 ──
   build:
+    if: github.event_name == 'pull_request'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 uv
+        run: pip install uv
+
+      - name: 安装依赖
+        run: uv sync
+
+      - name: 安装 PyInstaller
+        run: uv pip install pyinstaller
+
+      - name: 打包 exe
+        run: uv run pyinstaller --onefile --name night-watcher --noconsole main.py
+
+      - name: 缓存编译产物
+        uses: actions/cache/save@v4
+        with:
+          path: dist/night-watcher.exe
+          key: nw-exe-${{ hashFiles('uv.lock', '**/*.py') }}
+
+  # ── 合并后直接取缓存发版，不重新编译 ──
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: windows-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
 
-      # ── 恢复缓存的 exe 产物 ──
       - name: 恢复编译产物
-        id: cache-exe
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: dist/night-watcher.exe
           key: nw-exe-${{ hashFiles('uv.lock', '**/*.py') }}
+          fail-on-cache-miss: true
 
-      # ── 缓存命中且是合并发版 → 跳过编译 ──
-      - name: 安装 uv
-        if: steps.cache-exe.outputs.cache-hit != 'true'
-        run: pip install uv
-
-      - name: 安装依赖
-        if: steps.cache-exe.outputs.cache-hit != 'true'
-        run: uv sync
-
-      - name: 安装 PyInstaller
-        if: steps.cache-exe.outputs.cache-hit != 'true'
-        run: uv pip install pyinstaller
-
-      - name: 打包 exe
-        id: pack
-        if: steps.cache-exe.outputs.cache-hit != 'true'
-        run: uv run pyinstaller --onefile --name night-watcher --noconsole main.py
-
-      # 打包失败 → 删除缓存的 exe，防止保存损坏的产物
-      - name: 打包失败清理
-        if: failure()
-        run: Remove-Item -Force dist/night-watcher.exe -ErrorAction SilentlyContinue
-        shell: pwsh
-
-      # ── 仅 push 到 main（PR 合并）时发版 ──
       - name: 解析 CHANGELOG 获取版本
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         id: changelog
         shell: pwsh
         run: |
@@ -76,7 +76,6 @@ jobs:
           Set-Content -Path release_body.md -Value $bodyText -Encoding UTF8
 
       - name: 创建 GitHub Release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.changelog.outputs.version }}
