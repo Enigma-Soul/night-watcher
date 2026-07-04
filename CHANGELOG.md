@@ -1,3 +1,14 @@
+# 0.1.3
+
+### Fix(ci)
+
+- build.yml: 打包后新增 zip + upload-artifact 上传产物
+- release.yml: 创建 Release 前新增 upload-artifact 上传产物
+
+### Chore
+
+- develop 分支重置，与 main 同步
+
 # 0.1.2
 
 ### Chore(ci)
