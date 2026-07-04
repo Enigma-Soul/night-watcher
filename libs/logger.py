@@ -19,18 +19,20 @@ _FILE_FORMAT = "{time:YYYY-MM-DD HH:mm:ss} | {level: <7} | {message}"
 
 
 def setup(path: str = "log.log"):
-    """初始化输出：stderr 彩色 + 路径文件落地。重复调用仅首次生效。"""
+    """初始化输出：stderr 彩色（仅在可用时） + 路径文件落地。重复调用仅首次生效。"""
     if getattr(logger, "_night_watcher_configured", False):
         return
     logger._night_watcher_configured = True
 
     logger.remove()
-    logger.add(
-        sys.stderr,
-        format=FORMAT,
-        level="DEBUG",
-        colorize=True,
-    )
+    # PyInstaller --noconsole 时 sys.stderr 为 None，仅在其可用时添加控制台输出
+    if sys.stderr is not None:
+        logger.add(
+            sys.stderr,
+            format=FORMAT,
+            level="DEBUG",
+            colorize=True,
+        )
     logger.add(
         path,
         format=_FILE_FORMAT,

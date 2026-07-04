@@ -1,8 +1,6 @@
-name: Build & Check
+name: Reusable Build
 
 on:
-  pull_request:
-    branches: [main]
   workflow_call:
 
 jobs:
@@ -17,11 +15,8 @@ jobs:
       - name: 安装依赖
         run: uv sync
 
-      - name: 安装 PyInstaller
-        run: uv pip install pyinstaller
-
       - name: 打包 exe
-        run: uv run pyinstaller --name night-watcher --noconsole --add-data "adapter;adapter" --add-data "themes;themes" main.py
+        run: uv run pyinstaller --name night-watcher --noconsole --hidden-import requests --add-data "adapter;adapter" --add-data "themes;themes" main.py
 
       - name: 上传 artifact
         uses: actions/upload-artifact@v4

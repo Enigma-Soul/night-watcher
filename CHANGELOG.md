@@ -1,3 +1,9 @@
+# 0.1.5
+
+### Fix(logger)
+
+- PyInstaller `--noconsole` 打包后启动崩溃：`sys.stderr` 为 `None` 时跳过控制台 sink，仅保留文件日志
+
 # 0.1.4
 
 ### Chore(ci)
