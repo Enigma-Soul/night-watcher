@@ -33,8 +33,12 @@ def _resource_path(name: str) -> str:
 
 def main():
     # Windows 任务栏按 AppUserModelID 分组进程；显式设置避免归到 python.exe 默认图标
+    # 必须先于任何窗口创建；显式声明签名以确保宽字符串正确传入
     if sys.platform == "win32":
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("EnigmaSoul.NightWatcher")
+        set_aumid = ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID
+        set_aumid.argtypes = [ctypes.c_wchar_p]
+        set_aumid.restype = ctypes.HRESULT
+        set_aumid("EnigmaSoul.NightWatcher")
 
     config = Config("config.json")
     config.load()
@@ -43,7 +47,14 @@ def main():
     log.info("night-watcher 启动")
 
     qt_app = QApplication(sys.argv)  # 早建，供 QMessageBox
-    qt_app.setWindowIcon(QIcon(_resource_path("icon.png")))
+    # 优先 .ico（Windows 任务栏多尺寸原生支持），打包态无 .ico 则回退 .png
+    icon_path = _resource_path("icon.ico")
+    if not Path(icon_path).exists():
+        icon_path = _resource_path("icon.png")
+    icon = QIcon(icon_path)
+    if icon.isNull():
+        log.warning("应用图标加载失败: {}", icon_path)
+    qt_app.setWindowIcon(icon)
 
     try:
         classes = scan("adapter")

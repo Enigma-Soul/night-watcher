@@ -5,6 +5,14 @@
 - 应用图标：README 顶部展示、`QApplication` 窗口图标、Windows 任务栏 AUMID、EXE 嵌入 ico
 - 新增 `icon.png`（512×512）与构建期生成的 `icon.ico`；CI 打包带上 `--icon` 与 `icon.png` 资源
 
+### Fix(icon)
+
+- 开发态（`uv run python main.py`）任务栏图标不生效：AUMID 显式声明 ctypes 签名、优先加载 `icon.ico`、顶层窗口显式 `setWindowIcon`
+
+### Fix(app)
+
+- 退出时后台拉取线程 emit 到已销毁信号触发 `RuntimeError: Signal source has been deleted`：`aboutToQuit` 停调度清线程池，`_emit` 守护已销毁信号
+
 ### Chore
 
 - CLAUDE.md 版本号同步至 0.1.6（此前漏更）
