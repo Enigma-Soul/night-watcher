@@ -28,7 +28,6 @@ DEFAULT_CONFIG: dict = {
             "ss_region": "CN",
             "timeout": 10,
             "retries": 3,
-            "mock_file": "",
         },
         "nightscout": {"ns_url": "", "api_secret": "", "count": 288},
     },

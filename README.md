@@ -1,5 +1,9 @@
 # NightWatcher
 
+<p align="center">
+  <img src="icon.png" width="128" alt="NightWatcher">
+</p>
+
 [![Python](https://img.shields.io/badge/Python-3.12+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![Release](https://img.shields.io/github/actions/workflow/status/Enigma-Soul/night-watcher/release.yml?style=flat-square&label=Release)](https://github.com/Enigma-Soul/night-watcher/actions)
 [![License](https://img.shields.io/badge/License-GPLv3-blue?style=flat-square)](./LICENSE)
@@ -52,8 +56,7 @@ uv run python main.py
       "ss_token": "你的-token",
       "ss_region": "CN",
       "timeout": 10,
-      "retries": 3,
-      "mock_file": ""
+      "retries": 3
     },
     "nightscout": {
       "ns_url": "https://your-ns.example.com",
@@ -70,9 +73,6 @@ uv run python main.py
 - `time_range` 合法值 `1 | 6 | 12 | 24`（小时）。
 
 **Adapter 字段**：每个 adapter 从 `config["adapter"][<id>]` 读取自身配置。字段名由 adapter 自行定义。
-
-> [!TIP]
-> **无真实凭据也能跑**：把 `sisensing.mock_file` 设为本地硅基 API 抓包 JSON 路径，adapter 走完整解析但完全不联网。适合快速验证 UI 与数据管线。
 
 ## 主题
 
@@ -124,7 +124,6 @@ low_color = "#EB5757"
 | `ss_region` | `"CN"`（已验证）或 `"EU"`（未验证） |
 | `timeout` | 请求超时（秒） |
 | `retries` | 失败重试次数 |
-| `mock_file` | 本地 JSON 路径，填写后走离线解析（空字符串 = 真实 HTTP） |
 
 解析 `glucoseInfos[].v` 从 mmol/L 转 mg/dL（×18.018），将 `s` 字段映射为 NightScout 方向名。自动跳过 `glucoseInfos` 为空的过期设备。
 

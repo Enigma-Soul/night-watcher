@@ -56,15 +56,21 @@ class _FetchWorker(QRunnable):
         try:
             entries = self._adapter.fetch()
             log.debug("worker: 拉取完成, {} 条", len(entries))
-            self.signals.done.emit(self._adapter.id, entries, None)
+            self._emit(self._adapter.id, entries, None)
         except FetchError as e:
             log.debug("worker: 拉取失败: {}", e)
-            self.signals.done.emit(self._adapter.id, None, e)
+            self._emit(self._adapter.id, None, e)
         except Exception as e:  # 兜底：非 FetchError 也归一
             log.debug("worker: 异常: {}", e)
-            self.signals.done.emit(
-                self._adapter.id, None, FetchError(str(e), adapter_id=self._adapter.id)
-            )
+            self._emit(self._adapter.id, None, FetchError(str(e), adapter_id=self._adapter.id))
+
+    def _emit(self, aid: str, entries, error):
+        """发射结果；应用退出时 signals 可能已随主线程析构而销毁，静默丢弃即可。"""
+        try:
+            self.signals.done.emit(aid, entries, error)
+        except RuntimeError:
+            # 退出竞态：信号源 C++ 对象已删，结果无意义（进程即将结束）
+            pass
 
 
 class App:
@@ -80,6 +86,12 @@ class App:
 
         self.widget = FloatWidget()
         self.panel = InfoPanel()
+        # 显式给顶层窗口设置图标，确保任务栏/Alt-Tab 取到自定义图标而非 python.exe 默认
+        qapp = QApplication.instance()
+        if isinstance(qapp, QApplication):
+            icon = qapp.windowIcon()
+            self.widget.setWindowIcon(icon)
+            self.panel.setWindowIcon(icon)
         self.widget.apply_theme(self.theme.main)
         self.panel.apply_theme(self.theme.panel, self.theme.chart, self.theme.tir)
 
@@ -99,10 +111,17 @@ class App:
         self.panel.range_changed.connect(self._on_range_changed)
 
     def run(self):
+        qapp = QApplication.instance()
+        qapp.aboutToQuit.connect(self._shutdown)
         self.widget.show()
         self.update_ui()
         self.refresh()  # 启动后立即拉一次（成功后 _schedule_next 调度下次）
-        QApplication.instance().exec()
+        qapp.exec()
+
+    def _shutdown(self):
+        """退出前停止调度并清空待跑 worker，避免 emit 到已销毁的 signals。"""
+        self._sched_timer.stop()
+        self.pool.clear()
 
     # ---- 拉取 ----
 

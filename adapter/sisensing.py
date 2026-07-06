@@ -10,8 +10,6 @@
 
 from __future__ import annotations
 
-import json
-
 import requests
 
 from libs.base_adapter import BaseAdapter, FetchError
@@ -41,18 +39,9 @@ class SisensingAdapter(BaseAdapter):
     poll_interval_seconds = 300  # 硅基每 5 分钟一帧
 
     def is_configured(self) -> bool:
-        return bool(self.config.get("ss_token")) or bool(self.config.get("mock_file"))
+        return bool(self.config.get("ss_token"))
 
     def fetch(self) -> list[dict]:
-        # 离线冒烟：mock_file 指向本地 json，走完整解析链路，无需 token
-        mock = self.config.get("mock_file")
-        if mock:
-            try:
-                with open(mock, encoding="utf-8") as f:
-                    raw = json.load(f)
-            except (OSError, json.JSONDecodeError) as e:
-                raise FetchError(f"读取 mock_file 失败: {e}", adapter_id=self.id)
-            return self._parse(raw)
         return self._parse(self._request())
 
     def _request(self) -> dict:
