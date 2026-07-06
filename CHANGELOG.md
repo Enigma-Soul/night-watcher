@@ -1,3 +1,14 @@
+# 0.1.6
+
+### Feat(icon)
+
+- 应用图标：README 顶部展示、`QApplication` 窗口图标、Windows 任务栏 AUMID、EXE 嵌入 ico
+- 新增 `icon.png`（512×512）与构建期生成的 `icon.ico`；CI 打包带上 `--icon` 与 `icon.png` 资源
+
+### Chore
+
+- CLAUDE.md 版本号同步至 0.1.6（此前漏更）
+
 # 0.1.5
 
 ### Fix(logger)

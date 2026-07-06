@@ -13,8 +13,7 @@
             "ss_token": "",
             "ss_region": "CN",
             "timeout": 10,
-            "retries": 3,
-            "mock_file": ""
+            "retries": 3
         },
         "nightscout": {
             "ns_url": "",

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 版本
 
-当前版本：**0.1.4**（同步更新 `pyproject.toml` 和 `CHANGELOG.md`）
+当前版本：**0.1.6**（同步更新 `pyproject.toml` 和 `CHANGELOG.md`）
 
 每次 push 前必须询问用户新版本号，并同时更新：
 - `pyproject.toml` 的 `version` 字段

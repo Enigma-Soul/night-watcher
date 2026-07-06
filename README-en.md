@@ -1,5 +1,9 @@
 # NightWatcher
 
+<p align="center">
+  <img src="icon.png" width="128" alt="NightWatcher">
+</p>
+
 [![Python](https://img.shields.io/badge/Python-3.12+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![Release](https://img.shields.io/github/actions/workflow/status/Enigma-Soul/night-watcher/release.yml?style=flat-square&label=Release)](https://github.com/Enigma-Soul/night-watcher/actions)
 [![License](https://img.shields.io/badge/License-GPLv3-blue?style=flat-square)](./LICENSE)
@@ -52,8 +56,7 @@ uv run python main.py
       "ss_token": "your-token",
       "ss_region": "CN",
       "timeout": 10,
-      "retries": 3,
-      "mock_file": ""
+      "retries": 3
     },
     "nightscout": {
       "ns_url": "https://your-ns.example.com",
@@ -70,9 +73,6 @@ uv run python main.py
 - `time_range` accepts `1 | 6 | 12 | 24` hours.
 
 **Adapter fields:** each adapter reads its own config block from `config["adapter"][<id>]`. Key names are adapter-defined.
-
-> [!TIP]
-> **Testing without credentials:** set `sisensing.mock_file` to a local JSON dump of the SiBionics API response. The adapter runs the full parse pipeline without any HTTP request — great for verifying the UI and data pipeline.
 
 ## Themes
 
@@ -124,7 +124,6 @@ Follower-mode CGM data from `https://api.sisensing.com/follow/app/follow/myself/
 | `ss_region` | `"CN"` (verified) or `"EU"` (unvalidated) |
 | `timeout` | Request timeout in seconds |
 | `retries` | Retry attempts on failure |
-| `mock_file` | Local JSON path for offline testing (empty = real HTTP) |
 
 Converts `glucoseInfos[].v` from mmol/L to mg/dL (×18.018) and maps the `s` direction field to NightScout arrow names. Automatically skips expired devices with empty `glucoseInfos`.
 

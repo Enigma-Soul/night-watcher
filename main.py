@@ -1,8 +1,8 @@
 """night-watcher 入口（根下唯一 .py 文件）。
 
 启动顺序：
-    QApplication 早建（供 QMessageBox）
-    → Config.load + logger.setup
+    Config.load + logger.setup
+    → QApplication 早建（供 QMessageBox）并设窗口图标
     → adapter_loader.scan（id 重复/为空 → 弹窗退出）
     → 实例化 {id: cls(config.adapter_config(id))}
     → active 失效则回退第一个并写回
@@ -11,8 +11,11 @@
 
 from __future__ import annotations
 
+import ctypes
 import sys
+from pathlib import Path
 
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from libs.adapter_loader import DuplicateAdapterIdError, EmptyAdapterIdError, scan
@@ -22,14 +25,25 @@ from libs.logger import setup as setup_logger
 from libs.ui.app import App
 
 
+def _resource_path(name: str) -> str:
+    """解析资源绝对路径：打包后取 ``sys._MEIPASS``，开发态取源码根目录。"""
+    base = getattr(sys, "_MEIPASS", None) or Path(__file__).resolve().parent
+    return str(Path(base) / name)
+
+
 def main():
+    # Windows 任务栏按 AppUserModelID 分组进程；显式设置避免归到 python.exe 默认图标
+    if sys.platform == "win32":
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("EnigmaSoul.NightWatcher")
+
     config = Config("config.json")
     config.load()
     setup_logger("log.log")
     log = get_logger()
     log.info("night-watcher 启动")
 
-    QApplication(sys.argv)  # 早建，供 QMessageBox
+    qt_app = QApplication(sys.argv)  # 早建，供 QMessageBox
+    qt_app.setWindowIcon(QIcon(_resource_path("icon.png")))
 
     try:
         classes = scan("adapter")

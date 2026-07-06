@@ -25,7 +25,7 @@ _TIME_OPTIONS = [1, 6, 12, 24]
 
 # 各 adapter 需在设置里编辑的配置键（key 含 token/secret 时密码模式）
 _ADAPTER_FIELDS = {
-    "sisensing": ["ss_token", "ss_region", "timeout", "retries", "mock_file"],
+    "sisensing": ["ss_token", "ss_region", "timeout", "retries"],
     "nightscout": ["ns_url", "api_secret", "count"],
 }
 
