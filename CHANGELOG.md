@@ -1,3 +1,10 @@
+# 0.1.7
+
+### Refactor(adapter)
+
+- 时差自适应调度状态机（`discovery → wait → probing → steady`）从 `BaseAdapter` 下沉至 `SisensingAdapter`：硅基服务器时间戳与客户端时钟存在偏差需校准，NightScout 等本地/同区源不应继承该逻辑
+- `BaseAdapter` 退化为固定间隔轮询：`note_fetch_result` 空操作、`next_poll_delay_sec` 返回 `poll_interval_seconds`，缓存结构精简为 `{entries}`
+
 # 0.1.6
 
 ### Feat(icon)
