@@ -4,11 +4,20 @@
 关注者模式，返回全量历史（约 14 天，每 5 分钟一点）。token 需抓包获取
 （见 ``docs/sisensing-api.md``）。
 
+硅基服务器时间戳与客户端时钟存在偏差，故本 adapter 在基类固定轮询之上
+覆盖一套自适应调度（``discovery → wait → probing → steady``）校准时差：
+启动后短轮询发现首个新点 → 等 ~290s → 1s 探测窗口捕获下一个新点 →
+算出 offset 进入 steady，按 ``服务器新点时刻 + offset + 5s`` 对齐拉取。
+
 本 adapter 仅拉取不上传——上传 NightScout 非本项目核心功能，若日后需要可
 由本 adapter 自行扩展，不影响主程序。
 """
 
 from __future__ import annotations
+
+import json
+import os
+import time
 
 import requests
 
@@ -37,6 +46,16 @@ class SisensingAdapter(BaseAdapter):
     id = "sisensing"
     name = "硅基动感"
     poll_interval_seconds = 300  # 硅基每 5 分钟一帧
+
+    def __init__(self, adapter_config: dict | None = None):
+        super().__init__(adapter_config)
+        # 自适应调度状态
+        self._phase = "discovery"  # discovery | wait | probing | steady
+        self._last_latest: int = 0  # 最新数据点时间戳(ms)
+        self._offset: float = 0.0  # 服务器-客户端时差(秒)
+        self._wait_until: float = 0.0  # wait 到期时间(客户端秒)
+        self._probe_deadline: float = 0.0  # probing 截止时间(客户端秒)
+        self._load_offset()  # 已校准则直接进 steady
 
     def is_configured(self) -> bool:
         return bool(self.config.get("ss_token"))
@@ -106,6 +125,117 @@ class SisensingAdapter(BaseAdapter):
             direction = _S_TO_DIRECTION.get(_to_int(p.get("s")), "None")
             entries.append({"date": date, "sgv": sgv, "direction": direction})
         return entries
+
+    # ---- 自适应拉取调度（服务器-客户端时差校准）----
+
+    def note_fetch_result(self, entries: list[dict]):
+        """每次成功拉取后调用，更新自适应状态机。"""
+        if not entries:
+            return
+        now = time.time()
+        latest = max(e["date"] for e in entries)
+
+        # 首次调用：用服务器数据设基线
+        if self._last_latest == 0:
+            self._last_latest = latest
+            return
+
+        is_new = latest > self._last_latest
+        self._last_latest = latest
+
+        if not is_new:
+            return
+
+        if self._phase == "discovery":
+            # ① 发现第一个新数据点 → 进入 290s 等待
+            self._phase = "wait"
+            self._wait_until = now + 290
+
+        elif self._phase == "probing":
+            # ④ 探测窗口内捕获新数据 → 得 offset，立即退出并持久化
+            self._offset = now - latest / 1000.0
+            self._phase = "steady"
+            self._persist_offset()
+
+        # steady：offset 已锁定，无需操作
+
+    def next_poll_delay_sec(self) -> int:
+        """返回建议的下次拉取延迟(秒)。"""
+        now = time.time()
+
+        # probing 超时 → 回 wait，重新走 ③④
+        if self._phase == "probing" and now > self._probe_deadline:
+            self._phase = "wait"
+            self._wait_until = now + 290
+
+        if self._phase == "discovery":
+            return 20  # ② 每 20s 一次，至多等 300s
+
+        if self._phase == "wait":
+            if now >= self._wait_until:
+                self._phase = "probing"
+                self._probe_deadline = now + 10  # ④ 含请求共 10s，间隔 1s
+                return 1
+            return max(1, int(self._wait_until - now))
+
+        if self._phase == "probing":
+            return 1
+
+        if self._phase == "steady":
+            next_server = self._last_latest / 1000.0 + self.poll_interval_seconds
+            next_client = next_server + self._offset + 5
+            return max(30, int(next_client - now))
+
+        return 60
+
+    # ---- 缓存与持久化（带时差校准元数据）----
+
+    def save_cache(self, entries: list[dict]):
+        """保存 entries 与自适应元数据到 ``data/<id>.json``。"""
+        path = self._cache_path()
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(
+                {
+                    "entries": entries,
+                    "offset": self._offset,
+                    "phase": self._phase,
+                    "last_latest": self._last_latest,
+                },
+                f,
+                ensure_ascii=False,
+            )
+
+    def _persist_offset(self):
+        """将 offset 写回已存在的缓存文件（不重写 entries，防 crash 丢失）。"""
+        path = self._cache_path()
+        if not os.path.exists(path):
+            return
+        try:
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+            data["offset"] = self._offset
+            data["phase"] = self._phase
+            data["last_latest"] = self._last_latest
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False)
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    def _load_offset(self):
+        """从缓存文件恢复自适应元数据；已校准直接进 steady。"""
+        path = self._cache_path()
+        if not os.path.exists(path):
+            return
+        try:
+            with open(path, encoding="utf-8") as f:
+                d = json.load(f)
+            if d.get("phase") == "steady" and d.get("offset"):
+                self._offset = float(d["offset"])
+                self._phase = "steady"
+                self._last_latest = int(d.get("last_latest", 0))
+        except (OSError, json.JSONDecodeError, ValueError):
+            pass
 
 
 def _to_int(v) -> int:
