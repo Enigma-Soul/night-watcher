@@ -34,6 +34,13 @@ uv run ruff check --fix .
 - **`main` 受保护，禁止直接 push。** 所有开发在 `develop` 分支进行。
 - 完成后创建 `develop → main` 的 PR。
 - Commit message 使用中文，遵循 Conventional Commits（`feat(scope): 描述`、`fix(scope): 描述`）。
+- **合并后必须重置 `develop` 对齐 `main`**（rebase/squash 合并会在 main 上生成新 hash 的 commit 副本，与 develop 原始 commit 互不为祖先，导致两边互相领先、代码相同；不重置会让后续 PR diff 重复计算）：
+  ```bash
+  git checkout develop
+  git pull origin develop
+  git reset --hard origin/main
+  git push origin develop --force-with-lease
+  ```
 - **完成后必须运行 `uv run ruff format .` 格式化代码。**
 - **每次功能改动后必须打包测试**，确保 PyInstaller 产物可正常启动：
   ```bash
