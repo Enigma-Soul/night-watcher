@@ -5,6 +5,11 @@
 - 时差自适应调度状态机（`discovery → wait → probing → steady`）从 `BaseAdapter` 下沉至 `SisensingAdapter`：硅基服务器时间戳与客户端时钟存在偏差需校准，NightScout 等本地/同区源不应继承该逻辑
 - `BaseAdapter` 退化为固定间隔轮询：`note_fetch_result` 空操作、`next_poll_delay_sec` 返回 `poll_interval_seconds`，缓存结构精简为 `{entries}`
 
+### Fix(adapter)
+
+- 修复 sisensing `probing` 窗口无法覆盖大检测滞后导致时差永远无法校准：原 `wait=290/probing=10` 仅覆盖 δ≤10，当 discovery 在新点可见后 11–20s 才检到（δ>10）时，下一个新点落入 wait 尾部被静默吸收，probing 必然超时回 wait 形成死循环
+- 改为 `probing = 20 + timeout`（覆盖 20s 轮询网格滞后 + 单次 fetch 网络耗时），`wait = 300 − probing`；慢网络调大 `timeout` 自动加宽窗口
+
 # 0.1.6
 
 ### Feat(icon)

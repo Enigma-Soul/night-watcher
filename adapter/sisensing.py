@@ -6,8 +6,9 @@
 
 硅基服务器时间戳与客户端时钟存在偏差，故本 adapter 在基类固定轮询之上
 覆盖一套自适应调度（``discovery → wait → probing → steady``）校准时差：
-启动后短轮询发现首个新点 → 等 ~290s → 1s 探测窗口捕获下一个新点 →
-算出 offset 进入 steady，按 ``服务器新点时刻 + offset + 5s`` 对齐拉取。
+启动后短轮询发现首个新点 → 等待 ``300−(20+timeout)`` s → 进入 ``20+timeout``
+探测窗口（1s 间隔）捕获下一个新点 → 算出 offset 进入 steady，按
+``服务器新点时刻 + offset + 5s`` 对齐拉取。
 
 本 adapter 仅拉取不上传——上传 NightScout 非本项目核心功能，若日后需要可
 由本 adapter 自行扩展，不影响主程序。
@@ -128,6 +129,14 @@ class SisensingAdapter(BaseAdapter):
 
     # ---- 自适应拉取调度（服务器-客户端时差校准）----
 
+    def _probe_window(self) -> int:
+        """探测窗口时长(秒)：覆盖 discovery 的 20s 检测滞后 + 单次 fetch 的 timeout 余量。
+
+        discovery 检测发生在 fetch 完成时，滞后 δ ≤ 20(轮询网格) + timeout(网络)；
+        probing 须覆盖 δ 全域，故窗口取 20 + timeout，wait = 300 − 窗口。
+        """
+        return 20 + int(self.config.get("timeout", 10))
+
     def note_fetch_result(self, entries: list[dict]):
         """每次成功拉取后调用，更新自适应状态机。"""
         if not entries:
@@ -147,9 +156,9 @@ class SisensingAdapter(BaseAdapter):
             return
 
         if self._phase == "discovery":
-            # ① 发现第一个新数据点 → 进入 290s 等待
+            # ① 发现第一个新数据点 → 进入等待（wait = 300 − 探测窗口）
             self._phase = "wait"
-            self._wait_until = now + 290
+            self._wait_until = now + (300 - self._probe_window())
 
         elif self._phase == "probing":
             # ④ 探测窗口内捕获新数据 → 得 offset，立即退出并持久化
@@ -166,7 +175,7 @@ class SisensingAdapter(BaseAdapter):
         # probing 超时 → 回 wait，重新走 ③④
         if self._phase == "probing" and now > self._probe_deadline:
             self._phase = "wait"
-            self._wait_until = now + 290
+            self._wait_until = now + (300 - self._probe_window())
 
         if self._phase == "discovery":
             return 20  # ② 每 20s 一次，至多等 300s
@@ -174,7 +183,8 @@ class SisensingAdapter(BaseAdapter):
         if self._phase == "wait":
             if now >= self._wait_until:
                 self._phase = "probing"
-                self._probe_deadline = now + 10  # ④ 含请求共 10s，间隔 1s
+                # ④ 窗口 = 20s 检测滞后 + timeout 网络余量，间隔 1s
+                self._probe_deadline = now + self._probe_window()
                 return 1
             return max(1, int(self._wait_until - now))
 
