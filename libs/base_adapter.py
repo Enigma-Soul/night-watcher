@@ -4,9 +4,9 @@
 ``id`` 为唯一标识。**仅 adapter 做网络请求**；``fetch`` 返回统一格式 entries，
 去重/排序交给 ``SGV.merge``。
 
-默认调度为固定间隔轮询（``poll_interval_seconds``）；存在服务器-客户端时差
-的数据源（如硅基）在子类覆盖 ``note_fetch_result`` / ``next_poll_delay_sec``
-实现自适应校准（见 ``adapter/sisensing.py``）。
+默认调度为固定间隔轮询（``poll_interval_seconds``）；产出时间固定的数据源
+（如硅基，每 300s 一帧）在子类覆盖 ``note_fetch_result`` / ``next_poll_delay_sec``
+实现自适应预测调度（见 ``adapter/sisensing.py``）。
 """
 
 from __future__ import annotations
@@ -32,8 +32,11 @@ class BaseAdapter:
 
     def __init__(self, adapter_config: dict | None = None):
         self.config: dict = adapter_config or {}
-        # 调度阶段标识，供日志/调试；自适应子类会覆盖为 discovery/wait/probing/steady
+        # 调度阶段标识，供日志/调试；自适应子类会覆盖为 discovery/steady
         self._phase: str = "fixed"
+        # 服务器-客户端时钟偏差(秒，client−server)，仅用于显示"最后更新"补偿；
+        # 默认 0 即无补偿（本地/同区源），存在时差的子类（如硅基）按观测更新
+        self._clock_offset_sec: float = 0.0
 
     def fetch(self) -> list[dict]:
         """拉取并返回 entries：``[{"date":int_ms,"sgv":int_mgdl,"direction":str}]``。

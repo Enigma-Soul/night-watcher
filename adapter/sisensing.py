@@ -4,11 +4,12 @@
 关注者模式，返回全量历史（约 14 天，每 5 分钟一点）。token 需抓包获取
 （见 ``docs/sisensing-api.md``）。
 
-硅基服务器时间戳与客户端时钟存在偏差，故本 adapter 在基类固定轮询之上
-覆盖一套自适应调度（``discovery → wait → probing → steady``）校准时差：
-启动后短轮询发现首个新点 → 等待 ``300−(20+timeout)`` s → 进入 ``20+timeout``
-探测窗口（1s 间隔）捕获下一个新点 → 算出 offset 进入 steady，按
-``服务器新点时刻 + offset + 5s`` 对齐拉取。
+硅基每 300s 产出一帧、网格固定，故本 adapter 在基类固定轮询之上覆盖一套
+自适应调度（``discovery → steady``）：discovery 每 20s 轮询锁定首个新点的
+客户端时刻 → steady 按 ``上次新点时刻 + 300 + 3s`` 预测下次拉取，并以服务器
+跨步推进锚点（容忍漏帧、无逐轮漂移）。调度不依赖时差校准；但服务器时间戳与
+客户端时钟有偏差，故另观测 ``client−server`` 时差（``_clock_offset_sec``）仅
+用于显示"最后更新"补偿。
 
 本 adapter 仅拉取不上传——上传 NightScout 非本项目核心功能，若日后需要可
 由本 adapter 自行扩展，不影响主程序。
@@ -42,6 +43,12 @@ _URLS = {
     "EU": "https://cgm-ce.sisensing.com/user/app/follow/sharer",  # 未验证，保留
 }
 
+# 自适应调度常量
+_DISCOVERY_POLL_SEC = 20  # discovery 轮询间隔(300s 网格内必检到新点)
+_FETCH_DELAY_SEC = 3  # 预判新点到达后额外等待的拉取延迟
+_MIN_DELAY_SEC = 5  # 下次拉取最小间隔(重试下限,防抖)
+_STEADY_MISS_RESET = 10  # steady 连续未见新点达此数 → 回 discovery 重新锁定
+
 
 class SisensingAdapter(BaseAdapter):
     id = "sisensing"
@@ -50,13 +57,13 @@ class SisensingAdapter(BaseAdapter):
 
     def __init__(self, adapter_config: dict | None = None):
         super().__init__(adapter_config)
-        # 自适应调度状态
-        self._phase = "discovery"  # discovery | wait | probing | steady
+        # 自适应调度状态：discovery(找首个新点) → steady(按 300s 网格预测)
+        self._phase = "discovery"
         self._last_latest: int = 0  # 最新数据点时间戳(ms)
-        self._offset: float = 0.0  # 服务器-客户端时差(秒)
-        self._wait_until: float = 0.0  # wait 到期时间(客户端秒)
-        self._probe_deadline: float = 0.0  # probing 截止时间(客户端秒)
-        self._load_offset()  # 已校准则直接进 steady
+        self._last_new_client_time: float = 0.0  # 上次见到新点的客户端时刻(秒)
+        self._misses: int = 0  # steady 连续未见新点次数
+        self._clock_offset_sec: float = 0.0  # 时钟偏差(秒，client−server)，仅显示补偿
+        self._load_state()  # 已锁定网格则直接进 steady
 
     def is_configured(self) -> bool:
         return bool(self.config.get("ss_token"))
@@ -127,78 +134,63 @@ class SisensingAdapter(BaseAdapter):
             entries.append({"date": date, "sgv": sgv, "direction": direction})
         return entries
 
-    # ---- 自适应拉取调度（服务器-客户端时差校准）----
-
-    def _probe_window(self) -> int:
-        """探测窗口时长(秒)：覆盖 discovery 的 20s 检测滞后 + 单次 fetch 的 timeout 余量。
-
-        discovery 检测发生在 fetch 完成时，滞后 δ ≤ 20(轮询网格) + timeout(网络)；
-        probing 须覆盖 δ 全域，故窗口取 20 + timeout，wait = 300 − 窗口。
-        """
-        return 20 + int(self.config.get("timeout", 10))
+    # ---- 自适应拉取调度（按 300s 网格预测，无时差校准）----
 
     def note_fetch_result(self, entries: list[dict]):
-        """每次成功拉取后调用，更新自适应状态机。"""
+        """每次成功拉取后调用，更新自适应状态机。
+
+        硅基每 300s 产出一帧、网格固定。discovery 短轮询锁定首个新点的客户端
+        时刻；steady 据此预测下一帧时刻（+3s 拉取），并按服务器实际跨步推进
+        锚点（容忍漏帧、无逐轮漂移）。连续多次未见新点则回 discovery 重新锁定。
+        """
         if not entries:
             return
         now = time.time()
         latest = max(e["date"] for e in entries)
 
-        # 首次调用：用服务器数据设基线
+        # 首次：仅记基线，进入 discovery 等待首个新点
         if self._last_latest == 0:
             self._last_latest = latest
+            self._phase = "discovery"
             return
 
         is_new = latest > self._last_latest
+        prev_latest = self._last_latest
         self._last_latest = latest
 
         if not is_new:
+            # 新点未到（预测偏早或服务器延迟）→ 计数，超限回 discovery
+            self._misses += 1
+            if self._phase == "steady" and self._misses >= _STEADY_MISS_RESET:
+                self._phase = "discovery"
+                self._last_new_client_time = 0.0
             return
 
+        # 见到新点
+        self._misses = 0
+        # 记录时钟偏差(client−server 时间戳)，仅用于显示"最后更新"补偿；
+        # steady 阶段 +3s 拉新鲜点，此值稳定，补偿后≈距上次拉取(即距数据产出)
+        self._clock_offset_sec = now - latest / 1000.0
         if self._phase == "discovery":
-            # ① 发现第一个新数据点 → 进入等待（wait = 300 − 探测窗口）
-            self._phase = "wait"
-            self._wait_until = now + (300 - self._probe_window())
-
-        elif self._phase == "probing":
-            # ④ 探测窗口内捕获新数据 → 得 offset，立即退出并持久化
-            self._offset = now - latest / 1000.0
+            # 锁定网格：记录客户端时刻（含 ≤20s 检测滞后）
+            self._last_new_client_time = now
             self._phase = "steady"
-            self._persist_offset()
-
-        # steady：offset 已锁定，无需操作
+        else:
+            # steady：按服务器跨步推进锚点（整 300s 倍数，容忍漏帧且无漂移）
+            steps = max(1, round((latest - prev_latest) / 1000 / self.poll_interval_seconds))
+            self._last_new_client_time += steps * self.poll_interval_seconds
+        self._persist_state()
 
     def next_poll_delay_sec(self) -> int:
         """返回建议的下次拉取延迟(秒)。"""
-        now = time.time()
-
-        # probing 超时 → 回 wait，重新走 ③④
-        if self._phase == "probing" and now > self._probe_deadline:
-            self._phase = "wait"
-            self._wait_until = now + (300 - self._probe_window())
-
         if self._phase == "discovery":
-            return 20  # ② 每 20s 一次，至多等 300s
+            return _DISCOVERY_POLL_SEC
+        # steady：下次拉取 = 上次新点客户端时刻 + 300 + 3s 延迟
+        now = time.time()
+        delay = (self._last_new_client_time + self.poll_interval_seconds + _FETCH_DELAY_SEC) - now
+        return max(_MIN_DELAY_SEC, int(delay))
 
-        if self._phase == "wait":
-            if now >= self._wait_until:
-                self._phase = "probing"
-                # ④ 窗口 = 20s 检测滞后 + timeout 网络余量，间隔 1s
-                self._probe_deadline = now + self._probe_window()
-                return 1
-            return max(1, int(self._wait_until - now))
-
-        if self._phase == "probing":
-            return 1
-
-        if self._phase == "steady":
-            next_server = self._last_latest / 1000.0 + self.poll_interval_seconds
-            next_client = next_server + self._offset + 5
-            return max(30, int(next_client - now))
-
-        return 60
-
-    # ---- 缓存与持久化（带时差校准元数据）----
+    # ---- 缓存与持久化（带调度元数据）----
 
     def save_cache(self, entries: list[dict]):
         """保存 entries 与自适应元数据到 ``data/<id>.json``。"""
@@ -208,43 +200,51 @@ class SisensingAdapter(BaseAdapter):
             json.dump(
                 {
                     "entries": entries,
-                    "offset": self._offset,
                     "phase": self._phase,
                     "last_latest": self._last_latest,
+                    "last_new_client_time": self._last_new_client_time,
+                    "clock_offset_sec": self._clock_offset_sec,
                 },
                 f,
                 ensure_ascii=False,
             )
 
-    def _persist_offset(self):
-        """将 offset 写回已存在的缓存文件（不重写 entries，防 crash 丢失）。"""
+    def _persist_state(self):
+        """将调度元数据写回已存在的缓存文件（不重写 entries，防 crash 丢失）。"""
         path = self._cache_path()
         if not os.path.exists(path):
             return
         try:
             with open(path, encoding="utf-8") as f:
                 data = json.load(f)
-            data["offset"] = self._offset
             data["phase"] = self._phase
             data["last_latest"] = self._last_latest
+            data["last_new_client_time"] = self._last_new_client_time
+            data["clock_offset_sec"] = self._clock_offset_sec
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False)
         except (OSError, json.JSONDecodeError):
             pass
 
-    def _load_offset(self):
-        """从缓存文件恢复自适应元数据；已校准直接进 steady。"""
+    def _load_state(self):
+        """从缓存恢复调度元数据；已锁定网格(有客户端时刻)则直接进 steady。
+
+        旧版基于 offset 的缓存无 ``last_new_client_time``，视为未锁定 → 回
+        discovery 重新校准（offset 不可靠，见 git history）。
+        """
         path = self._cache_path()
         if not os.path.exists(path):
             return
         try:
             with open(path, encoding="utf-8") as f:
                 d = json.load(f)
-            if d.get("phase") == "steady" and d.get("offset"):
-                self._offset = float(d["offset"])
+            self._last_latest = int(d.get("last_latest", 0))
+            self._clock_offset_sec = float(d.get("clock_offset_sec", 0.0))
+            t = float(d.get("last_new_client_time", 0.0))
+            if d.get("phase") == "steady" and t > 0:
                 self._phase = "steady"
-                self._last_latest = int(d.get("last_latest", 0))
-        except (OSError, json.JSONDecodeError, ValueError):
+                self._last_new_client_time = t
+        except (OSError, json.JSONDecodeError, ValueError, TypeError):
             pass
 
 

@@ -1,3 +1,16 @@
+# 0.1.8
+
+### Fix(adapter)
+
+- 修复 sisensing 自适应调度偶发"卡死不刷新、下次拉取等待超 300s"：旧版用 `probing` 窗口校准 `offset`（服务器-客户端时差），但 probing 常抓到已存在数秒的数据点，offset 被 inflate，steady 公式 `latest/1000 + 300 + offset + 5` 随之算出 460~480s 延迟，fetch 落到下个周期之后，UI"X 分钟前"持续上涨
+- 重写调度状态机（`discovery → steady`），丢弃 offset 时差校准，改用客户端观测时间预测：discovery 每 20s 轮询锁定首个新点的客户端时刻 → steady 按 `上次新点时刻 + 300 + 3s` 预测下次拉取，并以服务器跨步（`round(Δt/300)` 步）推进锚点，容忍漏帧且无逐轮漂移；连续 10 次未见新点回 discovery 重新锁定
+- 缓存元数据字段 `offset` → `last_new_client_time`；旧缓存自动判定为"未锁定"回 discovery 重新校准，无需手动删除
+
+### Feat(ui)
+
+- "最后更新"时间显示引入时钟偏差补偿：sisensing 数据点为服务器时间戳，与客户端时钟有 ~124s 偏差，原显示偏小。新增 `_clock_offset_sec`（仅显示用，steady 阶段 +3s 拉新鲜点时观测 `client−server`，稳定可靠，不影响调度），补偿后显示距数据产出的真实时长
+- 细化"最后更新"分段：`<10s` 显示"刚刚"、`10~60s` 显示"1分钟内"、`≥60s` 沿用"X 分钟前/X 小时前"
+
 # 0.1.7
 
 ### Refactor(adapter)

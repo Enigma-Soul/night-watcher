@@ -253,7 +253,9 @@ class App:
         else:
             value_text = self._format_value(latest["sgv"], unit)
             arrow = _DIRECTION_ARROW.get(latest.get("direction"), "→")
-            time_ago = self._time_ago(latest["date"])
+            adapter = self.adapters.get(self.active_id)
+            offset = getattr(adapter, "_clock_offset_sec", 0.0) if adapter else 0.0
+            time_ago = self._time_ago(latest["date"], offset)
 
         now_ms = int(datetime.now().timestamp() * 1000)
         start_ms = now_ms - hours * 3600 * 1000
@@ -282,11 +284,15 @@ class App:
         return f"{int(sgv)}"
 
     @staticmethod
-    def _time_ago(date_ms: int) -> str:
+    def _time_ago(date_ms: int, clock_offset_sec: float = 0.0) -> str:
+        # 用 adapter 时钟偏差补偿：date 为服务器时间戳，补偿后得到距客户端"现在"的真实秒数
         now_ms = int(datetime.now().timestamp() * 1000)
-        diff = (now_ms - date_ms) // 60000
-        if diff < 1:
+        diff_sec = (now_ms - date_ms) / 1000 - clock_offset_sec
+        if diff_sec < 10:
             return "刚刚"
-        if diff < 60:
-            return f"{diff} 分钟前"
-        return f"{diff // 60} 小时前"
+        if diff_sec < 60:
+            return "1分钟内"
+        mins = int(diff_sec // 60)
+        if mins < 60:
+            return f"{mins} 分钟前"
+        return f"{mins // 60} 小时前"

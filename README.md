@@ -251,11 +251,11 @@ adapter/             # 可插拔数据源转接头（启动时自动扫描）
 themes/
 └── default.toml     #   默认主题（其余 .toml 缺失键的兜底）
 data/                #   运行时缓存与自适应元数据（gitignored）
-└── <id>.json        #   entries + offset + phase + last_latest
+└── <id>.json        #   entries + phase + last_latest + last_new_client_time
 ```
 
 **数据流**：`adaptive-scheduling-timer` → `QThreadPool worker` → `adapter.fetch()`（子线程）→ `Signal 回主线程` → `SGV.merge` → `adapter.save_cache` → `UI.update()`。拉取全程在子线程，悬浮窗交互绝不卡顿。
 
-**自适应调度**：启动时 20 秒轮询发现新数据 → 进入 290 秒等待 → 1 秒 ×10 探测窗口 → 得到 offset 后进入 steady（按 `server_time + 300 + offset + 5` 对齐）。校准结果写入 `data/<id>.json`，重启立即恢复。
+**自适应调度**：硅基每 300s 产出一帧、网格固定。启动后每 20s 轮询锁定首个新点的客户端时刻 → steady 阶段按 `上次新点时刻 + 300 + 3s` 预测下次拉取，并以服务器跨步推进锚点（容忍漏帧、无逐轮漂移）。无需时差校准，元数据写入 `data/<id>.json`，重启立即恢复。
 
 **方向映射**：adapter 输出 NightScout 方向字符串（`DoubleUp`、`SingleUp`、`FortyFiveUp`、`Flat`、`FortyFiveDown`、`SingleDown`、`DoubleDown`），UI 映射为 ↑↑ ↑ ↗ → ↘ ↓ ↓↓。未知或缺失显示 →。
