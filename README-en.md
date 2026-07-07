@@ -20,7 +20,7 @@ A desktop CGM glucose widget. Pulls data from pluggable adapters — SiBionics, 
 - **Info panel** — tap the badge to expand a 260×280 panel with 1/6/12/24h glucose curves, TIR bars, and a last-updated timestamp.
 - **Zone-colored curves** — the line and dots recolor per reading: low (red) / in-range (green) / high (yellow).
 - **Drag-and-drop adapters** — drop a `.py` file into `adapter/` and it's loaded on next launch. Files starting with `_` are skipped.
-- **Adaptive scheduling** — automatically calibrates server-client clock offset by computing interval mode, avoiding both "waiting too long" and "polling too often".
+- **Adaptive scheduling** — the SiBionics grid is a fixed 300 s; the adapter locks the first new reading's client-side time, then schedules each next fetch at `last_new + 300 + 3 s`, advancing the anchor by the server's actual step (skips missed frames, no per-cycle drift). No clock-offset calibration needed.
 - **Theme system** — full contract in `themes/*.toml` (main / panel / chart / TIR), selectable from the settings dialog.
 - **Multi-source switching** — right-click menu or settings dialog; each adapter has its own config block.
 - **Network isolation** — only adapters make HTTP requests. Core library, UI, config, and cache layers never touch the network.
@@ -252,11 +252,11 @@ adapter/             # pluggable data-source adapters (auto-discovered at startu
 themes/
 └── default.toml     #   default theme (fallback for missing keys in user themes)
 data/                #   runtime cache + adaptive metadata (gitignored)
-└── <id>.json        #   entries + offset + phase + last_latest
+└── <id>.json        #   entries + phase + last_latest + last_new_client_time
 ```
 
 **Data flow**: `adaptive-scheduling-timer` → `QThreadPool worker` → `adapter.fetch()` (on worker thread) → `Signal back to main thread` → `SGV.merge` → `adapter.save_cache` → `UI.update()`. Fetching happens off the main thread so the badge never freezes during network I/O.
 
-**Adaptive scheduling**: on launch, poll every 20 s until a new reading arrives → wait 290 s → probe at 1 s × 10 → once a new reading lands, compute `offset` and enter steady state (scheduled at `server_time + 300 + offset + 5`). Calibration is persisted in `data/<id>.json` so restarts resume in steady state immediately.
+**Adaptive scheduling**: the SiBionics grid is a fixed 300 s. On launch, poll every 20 s to lock the first new reading's client-side time → in steady state, schedule each next fetch at `last_new + 300 + 3 s`, advancing the anchor by the server's actual step (tolerates missed frames, no per-cycle drift). No clock-offset calibration; metadata is persisted in `data/<id>.json` so restarts resume in steady state immediately.
 
 **Direction mapping**: adapters provide NightScout direction strings (`DoubleUp`, `SingleUp`, `FortyFiveUp`, `Flat`, `FortyFiveDown`, `SingleDown`, `DoubleDown`). The UI maps these to arrows: ↑↑ ↑ ↗ → ↘ ↓ ↓↓. Unknown or missing directions render as →.
