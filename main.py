@@ -47,10 +47,10 @@ def main():
     log.info("night-watcher 启动")
 
     qt_app = QApplication(sys.argv)  # 早建，供 QMessageBox
-    # 优先 .ico（Windows 任务栏多尺寸原生支持），打包态无 .ico 则回退 .png
-    icon_path = _resource_path("icon.ico")
+    # 优先 .ico（多尺寸原生支持），缺失则回退 .png
+    icon_path = _resource_path("resources/icon.ico")
     if not Path(icon_path).exists():
-        icon_path = _resource_path("icon.png")
+        icon_path = _resource_path("resources/icon.png")
     icon = QIcon(icon_path)
     if icon.isNull():
         log.warning("应用图标加载失败: {}", icon_path)

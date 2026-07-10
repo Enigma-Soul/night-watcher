@@ -1,7 +1,7 @@
 # NightWatcher
 
 <p align="center">
-  <img src="icon.png" width="128" alt="NightWatcher">
+  <img src="resources/icon.png" width="128" alt="NightWatcher">
 </p>
 
 [![Python](https://img.shields.io/badge/Python-3.12+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
