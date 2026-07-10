@@ -16,7 +16,7 @@ jobs:
         run: uv sync
 
       - name: 打包 exe
-        run: uv run pyinstaller --name night-watcher --noconsole --hidden-import requests --icon resources/icon.ico --add-data "adapter;adapter" --add-data "themes;themes" --add-data "resources;resources" main.py
+        run: uv run pyinstaller --name night-watcher --noconsole --hidden-import requests --icon resources/icon.ico --add-data "adapter;adapter" --add-data "themes;themes" --add-data "resources;resources" --add-data "i18n;i18n" main.py
 
       - name: 上传 artifact
         uses: actions/upload-artifact@v4

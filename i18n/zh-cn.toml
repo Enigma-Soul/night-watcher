@@ -1,0 +1,42 @@
+# NightWatcher 简体中文翻译表。
+# 取词用点分键（如 menu.refresh）；含 {name} 占位符的条目由代码 .format() 填充。
+
+[common]
+no_data = "无数据"
+
+[menu]
+refresh = "刷新"
+settings = "设置"
+data_source = "数据源"
+quit = "退出"
+
+[settings]
+title = "设置"
+low_alert = "低警报线"
+high_alert = "高警报线"
+max_value = "框内最大值"
+theme = "主题"
+unit = "血糖单位"
+time_range = "时间范围"
+data_source = "数据源"
+language = "语言"
+lang_auto = "自动"
+time_1h = "1 小时"
+time_6h = "6 小时"
+time_12h = "12 小时"
+time_24h = "24 小时"
+
+[time]
+just_now = "刚刚"
+within_minute = "1分钟内"
+minutes_ago = "{mins} 分钟前"
+hours_ago = "{hours} 小时前"
+
+[tir]
+high = "高"
+range = "范围"
+low = "低"
+
+[startup]
+failed = "启动失败"
+no_adapter = "未发现任何 adapter，请放入 adapter/*.py"

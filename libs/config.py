@@ -20,6 +20,7 @@ DEFAULT_CONFIG: dict = {
         "theme": "default",
         "unit": "mmol/L",  # "mmol/L" | "mg/dL"，仅影响显示
         "time_range": 6,  # 1/6/12/24 小时
+        "language": "auto",  # "auto"(按系统区域) | "zh-cn" | "en"
         "active_adapter": "sisensing",
     },
     "adapter": {

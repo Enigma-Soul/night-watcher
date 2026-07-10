@@ -1,0 +1,42 @@
+# NightWatcher English translation table.
+# Keys are dotted (e.g. menu.refresh); entries with {name} placeholders are filled via .format().
+
+[common]
+no_data = "No data"
+
+[menu]
+refresh = "Refresh"
+settings = "Settings"
+data_source = "Data source"
+quit = "Quit"
+
+[settings]
+title = "Settings"
+low_alert = "Low alert"
+high_alert = "High alert"
+max_value = "Chart max"
+theme = "Theme"
+unit = "Glucose unit"
+time_range = "Time range"
+data_source = "Data source"
+language = "Language"
+lang_auto = "Auto"
+time_1h = "1 hour"
+time_6h = "6 hours"
+time_12h = "12 hours"
+time_24h = "24 hours"
+
+[time]
+just_now = "Just now"
+within_minute = "Within 1 min"
+minutes_ago = "{mins} min ago"
+hours_ago = "{hours} h ago"
+
+[tir]
+high = "High"
+range = "Range"
+low = "Low"
+
+[startup]
+failed = "Startup failed"
+no_adapter = "No adapter found. Please place adapter/*.py"

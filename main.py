@@ -18,6 +18,7 @@ from pathlib import Path
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 
+from libs import i18n
 from libs.adapter_loader import DuplicateAdapterIdError, EmptyAdapterIdError, scan
 from libs.config import Config
 from libs.logger import get as get_logger
@@ -45,6 +46,8 @@ def main():
     setup_logger("log.log")
     log = get_logger()
     log.info("night-watcher 启动")
+    i18n.set_lang(config.gui().get("language", "auto"))
+    log.info("语言: {}", i18n.lang())
 
     qt_app = QApplication(sys.argv)  # 早建，供 QMessageBox
     # 优先 .ico（多尺寸原生支持），缺失则回退 .png
@@ -59,11 +62,11 @@ def main():
     try:
         classes = scan("adapter")
     except (DuplicateAdapterIdError, EmptyAdapterIdError, ImportError) as e:
-        QMessageBox.critical(None, "启动失败", str(e))
+        QMessageBox.critical(None, i18n.t("startup.failed"), str(e))
         sys.exit(1)
 
     if not classes:
-        QMessageBox.critical(None, "启动失败", "未发现任何 adapter，请放入 adapter/*.py")
+        QMessageBox.critical(None, i18n.t("startup.failed"), i18n.t("startup.no_adapter"))
         sys.exit(1)
 
     instances = {cls.id: cls(config.adapter_config(cls.id)) for cls in classes}
