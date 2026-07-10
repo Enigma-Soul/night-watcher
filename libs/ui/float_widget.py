@@ -10,6 +10,7 @@ from PySide6.QtCore import QPoint, Qt
 from PySide6.QtGui import QAction, QBrush, QColor, QFont, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QApplication, QLabel, QMenu, QWidget
 
+from libs import i18n
 from libs.theme import MainTheme
 
 
@@ -82,17 +83,17 @@ class FloatWidget(QWidget):
             "QMenu::item { padding:5px 25px; }"
             "QMenu::item:selected { background: rgba(80,80,80,200); }"
         )
-        menu.addAction("刷新", self.on_refresh)
+        menu.addAction(i18n.t("menu.refresh"), self.on_refresh)
         menu.addSeparator()
-        menu.addAction("设置", self.on_open_settings)
+        menu.addAction(i18n.t("menu.settings"), self.on_open_settings)
         if self.sources:
-            sub = menu.addMenu("数据源")
+            sub = menu.addMenu(i18n.t("menu.data_source"))
             for aid, name in self.sources:
                 act = QAction(name, sub)
                 act.triggered.connect(lambda checked=False, a=aid: self.on_select_source(a))  # noqa: B023
                 sub.addAction(act)
         menu.addSeparator()
-        menu.addAction("退出", QApplication.quit)
+        menu.addAction(i18n.t("menu.quit"), QApplication.quit)
         menu.exec(pos)
 
     def paintEvent(self, event):  # noqa: N802

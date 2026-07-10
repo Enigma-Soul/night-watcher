@@ -10,6 +10,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import QWidget
 
+from libs import i18n
+
 
 class ChartView(QWidget):
     def __init__(self, parent=None):
@@ -58,7 +60,7 @@ class ChartView(QWidget):
 
         if not self._entries:
             p.setPen(QColor(150, 150, 150))
-            p.drawText(self.rect(), Qt.AlignCenter, "无数据")
+            p.drawText(self.rect(), Qt.AlignCenter, i18n.t("common.no_data"))
             return
 
         now = self._entries[-1]["date"]

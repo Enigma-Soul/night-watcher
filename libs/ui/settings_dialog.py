@@ -2,7 +2,8 @@
 
 发 ``settings_changed(dict)``，结构 ``{"gui": {...}, "adapter": {id: {...}}}``，
 App 收到后写回 Config 并按需刷新。警报线/最大值按当前 unit 输入，保存时
-统一转回 mg/dL 内部存储（修正旧代码 unit 语义反转 bug）。
+统一转回 mg/dL 内部存储（修正旧代码 unit 语义反转 bug）。所有可见文案走 i18n，
+语言切换在保存后由 App 重渲染生效。
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
+from libs import i18n
 from libs.theme import scan_themes
 
 _MGDL_PER_MMOLL = 18.018
@@ -40,8 +42,8 @@ class SettingsDialog(QDialog):
         self, gui: dict, adapter_configs: dict, adapter_sources: list[tuple[str, str]], parent=None
     ):
         super().__init__(parent)
-        self.setWindowTitle("设置")
-        self.setFixedSize(440, 520)
+        self.setWindowTitle(i18n.t("settings.title"))
+        self.setFixedSize(440, 560)
         self._gui = dict(gui)
         self._adapter_configs = {k: dict(v) for k, v in adapter_configs.items()}
         self._sources = adapter_sources
@@ -70,11 +72,32 @@ class SettingsDialog(QDialog):
         self._unit_combo.setCurrentText(self._gui.get("unit", "mmol/L"))
 
         self._time_combo = QComboBox()
-        self._time_combo.addItems(["1 小时", "6 小时", "12 小时", "24 小时"])
+        self._time_combo.addItems(
+            [
+                i18n.t("settings.time_1h"),
+                i18n.t("settings.time_6h"),
+                i18n.t("settings.time_12h"),
+                i18n.t("settings.time_24h"),
+            ]
+        )
         hours = int(self._gui.get("time_range", 6))
         self._time_combo.setCurrentIndex(
             _TIME_OPTIONS.index(hours) if hours in _TIME_OPTIONS else 1
         )
+
+        self._lang_combo = QComboBox()
+        # 语言名用其自身文字（i18n 惯例）；"auto" 标签随当前 UI 语言变化，故在此解析
+        for label, value in (
+            (i18n.t("settings.lang_auto"), "auto"),
+            ("简体中文", "zh-cn"),
+            ("English", "en"),
+        ):
+            self._lang_combo.addItem(label, value)
+        cur_lang = self._gui.get("language", "auto")
+        for i in range(self._lang_combo.count()):
+            if self._lang_combo.itemData(i) == cur_lang:
+                self._lang_combo.setCurrentIndex(i)
+                break
 
         self._source_combo = QComboBox()
         for aid, name in self._sources:
@@ -85,13 +108,14 @@ class SettingsDialog(QDialog):
                 self._source_combo.setCurrentIndex(i)
                 break
 
-        form.addRow("低警报线:", self._low_edit)
-        form.addRow("高警报线:", self._high_edit)
-        form.addRow("框内最大值:", self._max_edit)
-        form.addRow("主题:", self._theme_combo)
-        form.addRow("血糖单位:", self._unit_combo)
-        form.addRow("时间范围:", self._time_combo)
-        form.addRow("数据源:", self._source_combo)
+        form.addRow(i18n.t("settings.low_alert"), self._low_edit)
+        form.addRow(i18n.t("settings.high_alert"), self._high_edit)
+        form.addRow(i18n.t("settings.max_value"), self._max_edit)
+        form.addRow(i18n.t("settings.theme"), self._theme_combo)
+        form.addRow(i18n.t("settings.unit"), self._unit_combo)
+        form.addRow(i18n.t("settings.time_range"), self._time_combo)
+        form.addRow(i18n.t("settings.language"), self._lang_combo)
+        form.addRow(i18n.t("settings.data_source"), self._source_combo)
         layout.addLayout(form)
 
         self._adapter_refs: dict[str, dict[str, QLineEdit]] = {}
@@ -134,6 +158,7 @@ class SettingsDialog(QDialog):
             "theme": self._theme_combo.currentText(),
             "unit": self._unit_combo.currentText(),
             "time_range": _TIME_OPTIONS[self._time_combo.currentIndex()],
+            "language": self._lang_combo.currentData(),
             "active_adapter": self._source_combo.currentData(),
         }
         adapter = {}

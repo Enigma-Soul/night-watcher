@@ -1,3 +1,16 @@
+# 0.2.0
+
+### Feat(i18n)
+
+- 新增中英文国际化：`gui.language` 配置项（`auto` 按系统区域检测 / `zh-cn` / `en`），设置对话框新增语言下拉框，切换即时重渲染；翻译表 `i18n/{lang}.toml` 随 EXE 打包发布
+- 缺词容错：当前语言未命中回退英文，仍缺返回键名，避免向用户裸露键名
+
+### Fix(ui)
+
+- 图标多尺寸修复：旧 `icon.ico` 仅单张 256×256 致桌面/任务栏显示偏小，重新生成 16/24/32/48/64/128/256 七档多尺寸 ICO（32bpp）
+- 图标资源归入 `resources/` 目录（`icon.ico` + `icon.png`），同步更新 main.py/CI/README 引用
+- 主题标准线配色统一：`high_line_color` 改黄 `#F2C94C`、`low_line_color` 改红 `#EB5757`，与高/低区间及 TIR 配色一致
+
 # 0.1.8
 
 ### Fix(adapter)

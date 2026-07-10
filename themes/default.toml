@@ -20,8 +20,8 @@ border_radius = 10
 
 [chart]
 line_color = "#6496FA"
-high_line_color = "#FA9664"
-low_line_color = "#96FA64"
+high_line_color = "#F2C94C"
+low_line_color = "#EB5757"
 line_width = 2
 dot_visible = true
 dot_size = 3

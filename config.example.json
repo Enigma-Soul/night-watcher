@@ -6,6 +6,7 @@
         "color_scheme": 0,
         "unit": "mmol/L",
         "time_range": 6,
+        "language": "auto",
         "active_adapter": "sisensing"
     },
     "adapter": {

@@ -13,6 +13,7 @@ from datetime import datetime
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Signal, Slot
 from PySide6.QtWidgets import QApplication
 
+from libs import i18n
 from libs.base_adapter import BaseAdapter, FetchError
 from libs.config import Config
 from libs.logger import get as get_logger
@@ -209,6 +210,8 @@ class App:
         dlg.exec()
 
     def _on_settings_changed(self, data: dict):
+        # 语言可能已变，先切换全局 i18n，后续 update_ui 即按新语言重渲染
+        i18n.set_lang(data.get("gui", {}).get("language", "auto"))
         self.config.update_gui(data.get("gui", {}))
         for aid, cfg in data.get("adapter", {}).items():
             self.config.update_adapter(aid, cfg)
@@ -249,7 +252,7 @@ class App:
 
         latest = self.sgv.latest()
         if latest is None:
-            value_text, arrow, time_ago = "--", "→", "无数据"
+            value_text, arrow, time_ago = "--", "→", i18n.t("common.no_data")
         else:
             value_text = self._format_value(latest["sgv"], unit)
             arrow = _DIRECTION_ARROW.get(latest.get("direction"), "→")
@@ -289,10 +292,10 @@ class App:
         now_ms = int(datetime.now().timestamp() * 1000)
         diff_sec = (now_ms - date_ms) / 1000 - clock_offset_sec
         if diff_sec < 10:
-            return "刚刚"
+            return i18n.t("time.just_now")
         if diff_sec < 60:
-            return "1分钟内"
+            return i18n.t("time.within_minute")
         mins = int(diff_sec // 60)
         if mins < 60:
-            return f"{mins} 分钟前"
-        return f"{mins // 60} 小时前"
+            return i18n.t("time.minutes_ago", mins=mins)
+        return i18n.t("time.hours_ago", hours=mins // 60)
